@@ -1,2 +1,2 @@
 # Budgetly
-Expense Tracker application
+Expense Tracker Application
