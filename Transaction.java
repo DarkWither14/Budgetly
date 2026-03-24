@@ -1,10 +1,14 @@
 import java.time.LocalDate;
 
+// Represents a single financial transaction belonging to a user profile
 public class Transaction {
+
+    // Enum defining whether a transaction is income or an expense
     public enum TransactionType {
         INCOME,
         EXPENSE;
 
+        // Converts a string value to the matching TransactionType enum constant
         public static TransactionType fromString(String value) {
             if (value == null) {
                 throw new IllegalArgumentException("Type cannot be null.");
@@ -21,22 +25,25 @@ public class Transaction {
             }
         }
 
+        // Returns the enum name in lowercase
         @Override
         public String toString() {
             return name().toLowerCase();
         }
     }
 
+    // Fields
     private int transactionId;
     private double amount;
     private TransactionType type;
     private int categoryId;
     private LocalDate date;
-    private String note;
-    private String receiptPath;
-    private Integer transactionGroupId;
+    private String note;           // Optional note for the transaction
+    private String receiptPath;    // Optional file path to a receipt
+    private Integer transactionGroupId; // Nullable; links to a recurring group if set
     private int profileId;
 
+    // Constructor accepting category as an ID
     public Transaction(int transactionId, double amount, String type, int categoryId,
                        LocalDate date, String note, String receiptPath,
                        Integer transactionGroupId, int profileId) {
@@ -51,6 +58,7 @@ public class Transaction {
         setProfileId(profileId);
     }
 
+    // Constructor accepting a Category object; validates and assigns categoryId
     public Transaction(int transactionId, double amount, String type, Category category,
                        LocalDate date, String note, String receiptPath,
                        Integer transactionGroupId, int profileId) {
@@ -69,6 +77,7 @@ public class Transaction {
         return transactionId;
     }
 
+    // Validates that the ID is positive before setting
     public void setTransactionId(int transactionId) {
         if (transactionId <= 0) {
             throw new IllegalArgumentException("Transaction ID must be greater than 0.");
@@ -80,6 +89,7 @@ public class Transaction {
         return amount;
     }
 
+    // Validates that the amount is positive before setting
     public void setAmount(double amount) {
         if (amount <= 0) {
             throw new IllegalArgumentException("Amount must be greater than 0.");
@@ -91,10 +101,12 @@ public class Transaction {
         return type;
     }
 
+    // Parses a string and sets the transaction type
     public void setType(String type) {
         this.type = TransactionType.fromString(type);
     }
 
+    // Sets the transaction type directly from an enum value
     public void setType(TransactionType type) {
         if (type == null) {
             throw new IllegalArgumentException("Type cannot be null.");
@@ -106,6 +118,7 @@ public class Transaction {
         return categoryId;
     }
 
+    // Validates that the category ID is positive before setting
     public void setCategoryId(int categoryId) {
         if (categoryId <= 0) {
             throw new IllegalArgumentException("Category ID must be greater than 0.");
@@ -113,6 +126,7 @@ public class Transaction {
         this.categoryId = categoryId;
     }
 
+    // Validates that the category belongs to the same profile and matches the transaction type
     public void assignCategory(Category category) {
         if (category == null) {
             throw new IllegalArgumentException("Category cannot be null.");
@@ -135,6 +149,7 @@ public class Transaction {
         return date;
     }
 
+    // Validates that the date is not null before setting
     public void setDate(LocalDate date) {
         if (date == null) {
             throw new IllegalArgumentException("Date cannot be null.");
@@ -146,6 +161,7 @@ public class Transaction {
         return note;
     }
 
+    // Allows null notes; enforces a 100-word limit if a note is provided
     public void setNote(String note) {
         if (note != null && note.trim().split("\\s+").length > 100) {
             throw new IllegalArgumentException("Note cannot exceed 100 words.");
@@ -157,6 +173,7 @@ public class Transaction {
         return receiptPath;
     }
 
+    // Stores null if no path provided; rejects blank (whitespace-only) strings
     public void setReceiptPath(String receiptPath) {
         if (receiptPath == null) {
             this.receiptPath = null;
@@ -175,6 +192,7 @@ public class Transaction {
         return transactionGroupId;
     }
 
+    // Allows null (no group); validates the ID is positive when provided
     public void setTransactionGroupId(Integer transactionGroupId) {
         if (transactionGroupId != null && transactionGroupId <= 0) {
             throw new IllegalArgumentException("Transaction Group ID must be greater than 0 when provided.");
@@ -186,6 +204,7 @@ public class Transaction {
         return profileId;
     }
 
+    // Validates that the profile ID is positive before setting
     public void setProfileId(int profileId) {
         if (profileId <= 0) {
             throw new IllegalArgumentException("Profile ID must be greater than 0.");
@@ -193,14 +212,17 @@ public class Transaction {
         this.profileId = profileId;
     }
 
+    // Returns true if this transaction is income
     public boolean isIncome() {
         return type == TransactionType.INCOME;
     }
 
+    // Returns true if this transaction is an expense
     public boolean isExpense() {
         return type == TransactionType.EXPENSE;
     }
 
+    // Returns a formatted string with all transaction details
     @Override
     public String toString() {
         return "Transaction ID: " + transactionId +
