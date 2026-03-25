@@ -38,7 +38,7 @@ public class Transaction {
     private TransactionType type;
     private int categoryId;
     private LocalDate date;
-    private String note;           // Optional note for the transaction
+    private Category transactionCategory; // Optional reference to the Category object; can be null if only categoryId is used
     private String receiptPath;    // Optional file path to a receipt
     private Integer transactionGroupId; // Nullable; links to a recurring group if set
     private int profileId;
