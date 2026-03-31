@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Budgetly – Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="app-wrapper">
+  <div id="navContainer"></div>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">Dashboard</h1>
+      <span id="profileTag" style="font-size:.85rem;color:var(--text-secondary)"></span>
+    </div>
+
+    <!-- No profile banner -->
+    <div id="noProfileBanner" class="alert alert-info" style="display:none">
+      <i class="bi bi-info-circle-fill"></i>
+      No profile selected. <a href="profiles.html">Create a profile</a> to start tracking.
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon income"><i class="bi bi-arrow-down-circle-fill"></i></div>
+        <div>
+          <div class="stat-value" id="statIncome">$0.00</div>
+          <div class="stat-label">Total Income</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon expense"><i class="bi bi-arrow-up-circle-fill"></i></div>
+        <div>
+          <div class="stat-value" id="statExpense">$0.00</div>
+          <div class="stat-label">Total Expenses</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon balance"><i class="bi bi-wallet2"></i></div>
+        <div>
+          <div class="stat-value" id="statBalance">$0.00</div>
+          <div class="stat-label">Net Balance</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon count"><i class="bi bi-receipt"></i></div>
+        <div>
+          <div class="stat-value" id="statCount">0</div>
+          <div class="stat-label">Transactions</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent Transactions + Goals -->
+    <div class="two-col" style="margin-bottom:1rem">
+
+      <!-- Recent Transactions -->
+      <div class="card col-full">
+        <div class="card-header">
+          <span class="card-title">Recent Transactions</span>
+          <a href="transactions.html" class="btn btn-primary btn-sm">View All</a>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th><th>Category</th><th>Note</th><th>Type</th><th style="text-align:right">Amount</th>
+              </tr>
+            </thead>
+            <tbody id="recentBody">
+              <tr><td colspan="5"><div class="empty-state"><i class="bi bi-receipt"></i><p>No transactions yet.</p></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Budget Goals -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Budget Goals</span>
+          <a href="budget-goals.html" class="btn btn-primary btn-sm">Manage</a>
+        </div>
+        <div id="goalsBody">
+          <div class="empty-state"><i class="bi bi-bullseye"></i><p>No goals set.</p></div>
+        </div>
+      </div>
+
+      <!-- Top Spending -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Top Spending Categories</span>
+          <a href="reports.html" class="btn btn-primary btn-sm">Reports</a>
+        </div>
+        <div id="topSpendBody">
+          <div class="empty-state"><i class="bi bi-tag"></i><p>No expenses recorded.</p></div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="js/storage.js"></script>
+<script src="js/nav.js"></script>
+<script>
+(function () {
+  renderNav('dashboard');
+
+  const pid      = getActiveProfileId();
+  const profiles = getProfiles();
+  const profile  = profiles.find(p => p.id === pid);
+
+  if (!profile) {
+    document.getElementById('noProfileBanner').style.display = '';
+  } else {
+    document.getElementById('profileTag').textContent = 'Profile: ' + profile.name;
+  }
+
+  const txns       = pid ? getTransactionsByProfile(pid) : [];
+  const cats       = getCategories();
+  const totalIn    = txns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const totalEx    = txns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const balance    = totalIn - totalEx;
+
+  document.getElementById('statIncome').textContent  = formatCurrency(totalIn);
+  document.getElementById('statExpense').textContent = formatCurrency(totalEx);
+  document.getElementById('statCount').textContent   = txns.length;
+
+  const balEl = document.getElementById('statBalance');
+  balEl.textContent = formatCurrency(balance);
+  balEl.className   = 'stat-value ' + (balance >= 0 ? 'positive' : 'negative');
+
+  // Recent transactions
+  const recent = [...txns].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+  if (recent.length) {
+    document.getElementById('recentBody').innerHTML = recent.map(t => {
+      const cat = cats.find(c => c.id === t.categoryId);
+      return `<tr>
+        <td>${formatDate(t.date)}</td>
+        <td>${cat ? cat.name : '<span style="color:var(--text-muted)">Uncategorized</span>'}</td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.note || '—'}</td>
+        <td><span class="badge badge-${t.type}">${t.type}</span></td>
+        <td style="text-align:right" class="amount-${t.type}">${t.type === 'expense' ? '−' : '+'}${formatCurrency(t.amount)}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Budget goals
+  const goals = pid ? getGoalsByProfile(pid) : [];
+  if (goals.length) {
+    document.getElementById('goalsBody').innerHTML = goals.map(g => {
+      const cat   = cats.find(c => c.id === g.categoryId);
+      const label = cat ? cat.name : 'Overall Budget';
+      const spent = txns
+        .filter(t => t.type === 'expense' && (g.categoryId ? t.categoryId === g.categoryId : true))
+        .reduce((s, t) => s + t.amount, 0);
+      const pct  = g.targetAmount > 0 ? Math.min((spent / g.targetAmount) * 100, 100) : 0;
+      const over = spent > g.targetAmount;
+      return `<div class="goal-card">
+        <div class="goal-meta">
+          <span class="goal-name">${label}</span>
+          <span class="goal-amounts ${over ? 'negative' : ''}">${formatCurrency(spent)} / ${formatCurrency(g.targetAmount)}</span>
+        </div>
+        <div class="progress-wrap"><div class="progress-fill ${over ? 'over' : ''}" style="width:${pct}%"></div></div>
+        ${g.note ? `<div style="font-size:.75rem;color:var(--text-muted);margin-top:.3rem">${g.note}</div>` : ''}
+      </div>`;
+    }).join('');
+  }
+
+  // Top spending categories
+  const spend = getSpendingByCategory(pid);
+  const sorted = Object.entries(spend).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  if (sorted.length) {
+    document.getElementById('topSpendBody').innerHTML = sorted.map(([cid, amt]) => {
+      const cat = cats.find(c => c.id === cid);
+      const pct = totalEx > 0 ? Math.round((amt / totalEx) * 100) : 0;
+      return `<div style="padding:.75rem 1.25rem;border-bottom:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;font-size:.875rem;margin-bottom:.3rem">
+          <span style="font-weight:500">${cat ? cat.name : 'Uncategorized'}</span>
+          <span>${formatCurrency(amt)} <span style="color:var(--text-muted)">(${pct}%)</span></span>
+        </div>
+        <div class="progress-wrap"><div class="progress-fill" style="width:${pct}%;background:var(--info)"></div></div>
+      </div>`;
+    }).join('');
+  }
+})();
+</script>
+</body>
+</html>

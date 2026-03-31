@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Budgetly – Budget Goals</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="app-wrapper">
+  <div id="navContainer"></div>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">Budget Goals</h1>
+      <button class="btn btn-primary" onclick="openModal()">
+        <i class="bi bi-plus-lg"></i> Add Goal
+      </button>
+    </div>
+
+    <div id="noPidBanner" class="alert alert-info" style="display:none">
+      <i class="bi bi-info-circle-fill"></i>
+      No profile selected. <a href="profiles.html">Create or select a profile</a> first.
+    </div>
+
+    <div id="goalsContainer"></div>
+  </main>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay" id="goalModal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">Add Budget Goal</span>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+
+    <div id="formError" class="alert alert-danger" style="display:none"></div>
+
+    <div class="form-group">
+      <label>Target Amount ($) *</label>
+      <input type="number" id="fTarget" min="0.01" step="0.01" placeholder="e.g. 500.00" />
+    </div>
+
+    <div class="form-group">
+      <label>Category <span style="color:var(--text-muted)">(optional — leave blank for overall)</span></label>
+      <select id="fCategory">
+        <option value="">— Overall spending —</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label>Note <span style="color:var(--text-muted)">(optional)</span></label>
+      <textarea id="fNote" maxlength="500" rows="2" placeholder="e.g. Keep food spending under $500/month"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveGoal()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/storage.js"></script>
+<script src="js/nav.js"></script>
+<script>
+  let editingId = null;
+
+  renderNav('goals');
+  injectConfirmDialog();
+
+  const pid = getActiveProfileId();
+  if (!pid) {
+    document.getElementById('noPidBanner').style.display = '';
+  }
+
+  renderGoals();
+
+  // ---- Render ----
+  function renderGoals() {
+    const container = document.getElementById('goalsContainer');
+    if (!pid) { container.innerHTML = ''; return; }
+
+    const goals = getGoalsByProfile(pid);
+    const cats  = getCategories();
+    const txns  = getTransactionsByProfile(pid);
+
+    if (!goals.length) {
+      container.innerHTML = `<div class="empty-state">
+        <i class="bi bi-bullseye"></i>
+        <p>No budget goals yet. <a href="#" onclick="openModal()">Create one</a> to start tracking.</p>
+      </div>`;
+      return;
+    }
+
+    container.innerHTML = goals.map(g => {
+      const cat       = g.categoryId ? cats.find(c => c.id === g.categoryId) : null;
+      const label     = cat ? cat.name : 'Overall Spending';
+
+      // Calculate current spending for this goal's scope
+      const relevant  = g.categoryId
+        ? txns.filter(t => t.type === 'expense' && t.categoryId === g.categoryId)
+        : txns.filter(t => t.type === 'expense');
+      const spent     = relevant.reduce((s, t) => s + t.amount, 0);
+      const pct       = Math.min(100, g.targetAmount > 0 ? (spent / g.targetAmount) * 100 : 0);
+      const over      = spent > g.targetAmount;
+      const barClass  = pct >= 100 ? 'danger' : pct >= 75 ? 'warning' : 'ok';
+
+      return `
+        <div class="goal-card">
+          <div class="goal-header">
+            <div>
+              <div class="goal-title">${label}</div>
+              ${g.note ? `<div class="goal-note">${g.note}</div>` : ''}
+            </div>
+            <div class="goal-actions">
+              <button class="btn btn-ghost btn-icon" title="Edit" onclick="openModal('${g.id}')"><i class="bi bi-pencil"></i></button>
+              <button class="btn btn-danger btn-icon" title="Delete" onclick="confirmDeleteGoal('${g.id}')"><i class="bi bi-trash"></i></button>
+            </div>
+          </div>
+          <div class="goal-amounts">
+            <span class="goal-spent ${over ? 'over' : ''}">${formatCurrency(spent)} spent</span>
+            <span class="goal-target">of ${formatCurrency(g.targetAmount)}</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill ${barClass}" style="width:${pct}%"></div>
+          </div>
+          <div class="goal-pct">${pct.toFixed(1)}% used${over ? ' — <strong style="color:var(--danger)">Over budget!</strong>' : ''}</div>
+        </div>`;
+    }).join('');
+  }
+
+  // ---- Modal ----
+  function openModal(id) {
+    editingId = id || null;
+    document.getElementById('modalTitle').textContent  = id ? 'Edit Goal' : 'Add Budget Goal';
+    document.getElementById('formError').style.display = 'none';
+
+    // Populate expense categories
+    const sel = document.getElementById('fCategory');
+    sel.innerHTML = '<option value="">— Overall spending —</option>';
+    getCategoriesByType('expense').forEach(c => {
+      const o = document.createElement('option');
+      o.value = c.id; o.textContent = c.name;
+      sel.appendChild(o);
+    });
+
+    if (id) {
+      const g = getGoals().find(x => x.id === id);
+      if (!g) return;
+      document.getElementById('fTarget').value   = g.targetAmount;
+      document.getElementById('fNote').value     = g.note || '';
+      document.getElementById('fCategory').value = g.categoryId || '';
+    } else {
+      document.getElementById('fTarget').value   = '';
+      document.getElementById('fNote').value     = '';
+      document.getElementById('fCategory').value = '';
+    }
+
+    document.getElementById('goalModal').classList.add('open');
+    document.getElementById('fTarget').focus();
+  }
+
+  function closeModal() {
+    document.getElementById('goalModal').classList.remove('open');
+    editingId = null;
+  }
+
+  function saveGoal() {
+    const target = parseFloat(document.getElementById('fTarget').value);
+    const catId  = document.getElementById('fCategory').value;
+    const note   = document.getElementById('fNote').value.trim();
+    const errEl  = document.getElementById('formError');
+
+    if (!target || target <= 0) { errEl.textContent = 'Please enter a valid target amount.'; errEl.style.display = ''; return; }
+    if (!pid)                   { errEl.textContent = 'No active profile selected.';          errEl.style.display = ''; return; }
+
+    errEl.style.display = 'none';
+
+    if (editingId) {
+      updateGoal(editingId, { categoryId: catId, targetAmount: target, note });
+    } else {
+      createGoal({ profileId: pid, categoryId: catId, targetAmount: target, note });
+    }
+
+    closeModal();
+    renderGoals();
+  }
+
+  function confirmDeleteGoal(id) {
+    showConfirm('Delete this budget goal?', () => {
+      deleteGoal(id);
+      renderGoals();
+    });
+  }
+</script>
+</body>
+</html>

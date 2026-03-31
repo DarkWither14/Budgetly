@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Budgetly – Transaction Groups</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div class="app-wrapper">
+  <div id="navContainer"></div>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">Transaction Groups</h1>
+      <button class="btn btn-primary" onclick="openModal()">
+        <i class="bi bi-plus-lg"></i> New Group
+      </button>
+    </div>
+
+    <div id="noPidBanner" class="alert alert-info" style="display:none">
+      <i class="bi bi-info-circle-fill"></i>
+      No profile selected. <a href="profiles.html">Create or select a profile</a> first.
+    </div>
+
+    <div id="groupsContainer"></div>
+
+    <!-- Detail panel (shown when a group is selected) -->
+    <div id="detailPanel" style="display:none">
+      <div class="page-header" style="margin-top:2rem">
+        <h2 class="page-title" style="font-size:1.2rem" id="detailTitle">Group Transactions</h2>
+        <button class="btn btn-ghost btn-sm" onclick="closeDetail()"><i class="bi bi-x-lg"></i> Close</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Category</th>
+                <th>Note</th>
+                <th style="text-align:right">Amount</th>
+              </tr>
+            </thead>
+            <tbody id="detailBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay" id="groupModal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">New Group</span>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+
+    <div id="formError" class="alert alert-danger" style="display:none"></div>
+
+    <div class="form-group">
+      <label>Group Name *</label>
+      <input type="text" id="fName" maxlength="60" placeholder="e.g. Vacation 2026" />
+    </div>
+
+    <div class="form-group">
+      <label>Description <span style="color:var(--text-muted)">(optional)</span></label>
+      <textarea id="fDesc" maxlength="300" rows="2" placeholder="Brief description…"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveGroup()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/storage.js"></script>
+<script src="js/nav.js"></script>
+<script>
+  let editingId = null;
+
+  renderNav('groups');
+  injectConfirmDialog();
+
+  const pid = getActiveProfileId();
+  if (!pid) document.getElementById('noPidBanner').style.display = '';
+
+  renderGroups();
+
+  // ---- Render ----
+  function renderGroups() {
+    const container = document.getElementById('groupsContainer');
+    if (!pid) { container.innerHTML = ''; return; }
+
+    const groups = getGroupsByProfile(pid);
+
+    if (!groups.length) {
+      container.innerHTML = `<div class="empty-state">
+        <i class="bi bi-collection"></i>
+        <p>No groups yet. Groups let you tag a separate set of transactions (e.g. a vacation or a side project).</p>
+      </div>`;
+      return;
+    }
+
+    const cats = getCategories();
+
+    container.innerHTML = groups.map(g => {
+      const txns     = getTransactionsByGroup(g.id);
+      const income   = txns.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+      const expense  = txns.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+
+      return `
+        <div class="group-card">
+          <div class="group-header">
+            <div>
+              <div class="group-name">${g.name}</div>
+              ${g.description ? `<div class="group-desc">${g.description}</div>` : ''}
+            </div>
+            <div class="group-actions">
+              <button class="btn btn-outline btn-sm" onclick="viewDetail('${g.id}')">
+                <i class="bi bi-eye"></i> View
+              </button>
+              <button class="btn btn-ghost btn-icon" title="Edit" onclick="openModal('${g.id}')"><i class="bi bi-pencil"></i></button>
+              <button class="btn btn-danger btn-icon" title="Delete" onclick="confirmDeleteGroup('${g.id}','${escHtml(g.name)}')"><i class="bi bi-trash"></i></button>
+            </div>
+          </div>
+          <div class="group-stats">
+            <span><i class="bi bi-receipt"></i> ${txns.length} transaction${txns.length !== 1 ? 's' : ''}</span>
+            <span class="amount-income"><i class="bi bi-arrow-down-circle"></i> +${formatCurrency(income)}</span>
+            <span class="amount-expense"><i class="bi bi-arrow-up-circle"></i> −${formatCurrency(expense)}</span>
+            <span style="color:var(--text-secondary)"><i class="bi bi-calendar3"></i> Created ${formatDate(g.createdAt)}</span>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function escHtml(s) { return s.replace(/'/g, "\\'"); }
+
+  // ---- Detail view ----
+  function viewDetail(gid) {
+    const g    = getGroups().find(x => x.id === gid);
+    const txns = getTransactionsByGroup(gid).sort((a, b) => new Date(b.date) - new Date(a.date));
+    const cats = getCategories();
+
+    document.getElementById('detailTitle').textContent = `"${g.name}" — Transactions`;
+    document.getElementById('detailPanel').style.display = '';
+
+    const tbody = document.getElementById('detailBody');
+    if (!txns.length) {
+      tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state"><i class="bi bi-receipt"></i><p>No transactions in this group yet.</p></div></td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = txns.map(t => {
+      const cat = cats.find(c => c.id === t.categoryId);
+      return `<tr>
+        <td style="white-space:nowrap">${formatDate(t.date)}</td>
+        <td><span class="badge badge-${t.type}">${t.type}</span></td>
+        <td>${cat ? cat.name : '<span style="color:var(--text-muted)">—</span>'}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.note || '—'}</td>
+        <td style="text-align:right" class="amount-${t.type}">${t.type === 'expense' ? '−' : '+'}${formatCurrency(t.amount)}</td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('detailPanel').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function closeDetail() {
+    document.getElementById('detailPanel').style.display = 'none';
+  }
+
+  // ---- Modal ----
+  function openModal(id) {
+    editingId = id || null;
+    document.getElementById('modalTitle').textContent  = id ? 'Edit Group' : 'New Group';
+    document.getElementById('formError').style.display = 'none';
+
+    if (id) {
+      const g = getGroups().find(x => x.id === id);
+      if (!g) return;
+      document.getElementById('fName').value = g.name;
+      document.getElementById('fDesc').value = g.description || '';
+    } else {
+      document.getElementById('fName').value = '';
+      document.getElementById('fDesc').value = '';
+    }
+
+    document.getElementById('groupModal').classList.add('open');
+    document.getElementById('fName').focus();
+  }
+
+  function closeModal() {
+    document.getElementById('groupModal').classList.remove('open');
+    editingId = null;
+  }
+
+  function saveGroup() {
+    const name  = document.getElementById('fName').value.trim();
+    const desc  = document.getElementById('fDesc').value.trim();
+    const errEl = document.getElementById('formError');
+
+    if (!name) { errEl.textContent = 'Group name is required.'; errEl.style.display = ''; return; }
+    if (!pid)  { errEl.textContent = 'No active profile selected.'; errEl.style.display = ''; return; }
+
+    errEl.style.display = 'none';
+
+    if (editingId) {
+      updateGroup(editingId, { name, description: desc });
+    } else {
+      createGroup({ profileId: pid, name, description: desc });
+    }
+
+    closeModal();
+    renderGroups();
+  }
+
+  function confirmDeleteGroup(id, name) {
+    showConfirm(`Delete group "${name}"? All transactions inside it will also be deleted.`, () => {
+      deleteGroup(id);
+      closeDetail();
+      renderGroups();
+    });
+  }
+</script>
+</body>
+</html>
