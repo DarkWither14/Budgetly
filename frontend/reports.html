@@ -122,7 +122,9 @@
   let chartSpendCat = null;
   let chartIncCat   = null;
 
-  const PY_CHART_URL = 'http://localhost:5050';
+  const PY_CHART_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:5050'
+    : window.location.protocol + '//' + window.location.hostname.replace(/-\d+\./, '-5050.');
 
   // Check whether the Python chart server is reachable
   let pyServerAvailable = false;
