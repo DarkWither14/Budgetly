@@ -64,5 +64,15 @@ public class Account{
         p.setDisplayName(name);
         return p;
     }
-      
+    /**
+    Update profile
+    */
+    public void updateProfile(String name,int changeProfile,String change){
+        
+    }
+    private void updateProfileName(Profile p,String change){
+        
+    }
+    private void updateProfileDescription(Profile p, String change){
+    }
     }
