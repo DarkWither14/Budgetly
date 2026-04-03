@@ -1,2 +1,2 @@
 # Budgetly
-Expense Tracker Application
+Expense Application that helps you moderate spending habbits and more.
