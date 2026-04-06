@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Budgetly – Categories</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <link rel="stylesheet" href="css/style.css" />
+  <script>document.documentElement.setAttribute('data-theme',localStorage.getItem('budgetly_theme')||'light');</script>
+</head>
+<body>
+<div class="app-wrapper">
+  <div id="navContainer"></div>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">Categories</h1>
+      <button class="btn btn-primary" onclick="openModal()">
+        <i class="bi bi-plus-lg"></i> Add Category
+      </button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tab-row">
+      <button class="tab-btn active" id="tabExpense" onclick="switchTab('expense')">
+        <i class="bi bi-arrow-up-circle"></i> Expense
+      </button>
+      <button class="tab-btn" id="tabIncome" onclick="switchTab('income')">
+        <i class="bi bi-arrow-down-circle"></i> Income
+      </button>
+    </div>
+
+    <!-- Expense categories -->
+    <div id="panelExpense">
+      <div class="card-grid" id="gridExpense"></div>
+    </div>
+
+    <!-- Income categories -->
+    <div id="panelIncome" style="display:none">
+      <div class="card-grid" id="gridIncome"></div>
+    </div>
+  </main>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay" id="catModal">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-header">
+      <span class="modal-title" id="modalTitle">Add Category</span>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+
+    <div id="formError" class="alert alert-danger" style="display:none"></div>
+
+    <div class="form-group">
+      <label>Name *</label>
+      <input type="text" id="fName" maxlength="60" placeholder="e.g. Groceries" />
+    </div>
+
+    <div class="form-group">
+      <label>Type *</label>
+      <div class="type-toggle">
+        <label>
+          <input type="radio" name="fType" value="expense" checked />
+          <span><i class="bi bi-arrow-up-circle"></i> Expense</span>
+        </label>
+        <label>
+          <input type="radio" name="fType" value="income" />
+          <span><i class="bi bi-arrow-down-circle"></i> Income</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label>Description <span style="color:var(--text-muted)">(optional)</span></label>
+      <textarea id="fDesc" maxlength="200" rows="2" placeholder="Brief description…"></textarea>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCategory()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/storage.js"></script>
+<script src="js/nav.js"></script>
+<script>
+  let editingId  = null;
+  let activeTab  = 'expense';
+
+  renderNav('categories');
+  injectConfirmDialog();
+  renderGrids();
+
+  // ---- Tabs ----
+  function switchTab(type) {
+    activeTab = type;
+    document.getElementById('tabExpense').classList.toggle('active', type === 'expense');
+    document.getElementById('tabIncome').classList.toggle('active',  type === 'income');
+    document.getElementById('panelExpense').style.display = type === 'expense' ? '' : 'none';
+    document.getElementById('panelIncome').style.display  = type === 'income'  ? '' : 'none';
+  }
+
+  // ---- Render ----
+  function renderGrids() {
+    renderGrid('expense');
+    renderGrid('income');
+  }
+
+  function renderGrid(type) {
+    const cats = getCategoriesByType(type);
+    const el   = document.getElementById('grid' + (type === 'expense' ? 'Expense' : 'Income'));
+
+    if (!cats.length) {
+      el.innerHTML = `<div class="empty-state" style="grid-column:1/-1">
+        <i class="bi bi-tag"></i>
+        <p>No ${type} categories yet. <a href="#" onclick="openModal()">Add one</a>.</p>
+      </div>`;
+      return;
+    }
+
+    el.innerHTML = cats.map(c => `
+      <div class="cat-card">
+        <div class="cat-icon ${c.type}"><i class="bi bi-tag-fill"></i></div>
+        <div class="cat-body">
+          <div class="cat-name">${c.name}</div>
+          <div class="cat-desc">${c.description || '<span style="color:var(--text-muted)">No description</span>'}</div>
+        </div>
+        <div class="cat-actions">
+          <button class="btn btn-ghost btn-icon" title="Edit" onclick="openModal('${c.id}')"><i class="bi bi-pencil"></i></button>
+          <button class="btn btn-danger btn-icon" title="Delete" onclick="confirmDeleteCat('${c.id}','${escHtml(c.name)}')"><i class="bi bi-trash"></i></button>
+        </div>
+      </div>`).join('');
+  }
+
+  function escHtml(s) { return s.replace(/'/g, "\\'"); }
+
+  // ---- Modal ----
+  function openModal(id) {
+    editingId = id || null;
+    document.getElementById('modalTitle').textContent   = id ? 'Edit Category' : 'Add Category';
+    document.getElementById('formError').style.display  = 'none';
+
+    if (id) {
+      const c = getCategoryById(id);
+      if (!c) return;
+      document.getElementById('fName').value  = c.name;
+      document.getElementById('fDesc').value  = c.description || '';
+      document.querySelector(`input[name="fType"][value="${c.type}"]`).checked = true;
+    } else {
+      document.getElementById('fName').value  = '';
+      document.getElementById('fDesc').value  = '';
+      document.querySelector(`input[name="fType"][value="${activeTab}"]`).checked = true;
+    }
+
+    document.getElementById('catModal').classList.add('open');
+    document.getElementById('fName').focus();
+  }
+
+  function closeModal() {
+    document.getElementById('catModal').classList.remove('open');
+    editingId = null;
+  }
+
+  function saveCategory() {
+    const name = document.getElementById('fName').value.trim();
+    const type = document.querySelector('input[name="fType"]:checked').value;
+    const desc = document.getElementById('fDesc').value.trim();
+    const errEl = document.getElementById('formError');
+
+    if (!name) { errEl.textContent = 'Name is required.'; errEl.style.display = ''; return; }
+
+    try {
+      if (editingId) {
+        updateCategory(editingId, { name, type, description: desc });
+      } else {
+        createCategory({ name, type, description: desc });
+      }
+    } catch (e) {
+      errEl.textContent = e.message; errEl.style.display = ''; return;
+    }
+
+    closeModal();
+    renderGrids();
+  }
+
+  function confirmDeleteCat(id, name) {
+    showConfirm(`Delete category "${name}"? Transactions using it will become uncategorized.`, () => {
+      deleteCategory(id);
+      renderGrids();
+    });
+  }
+</script>
+</body>
+</html>
