@@ -3,6 +3,7 @@ public class Profile{
 
   private int profileID;
   private String displayName;
+  private String description;
   private List<TransactionGroup> transactionGroups;
   private Account assocAccount;
   private double bankRoll;
@@ -38,5 +39,11 @@ public class Profile{
   }
   public void setBankRoll(double amount){
     bankroll = amount;
+  }
+  public void setDescription(String description){
+    this.description = description;
+  }
+  public String getDescription(){
+    return description;
   }
 }
