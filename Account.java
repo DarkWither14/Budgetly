@@ -67,12 +67,24 @@ public class Account{
     /**
     Update profile
     */
-    public void updateProfile(String name,int changeProfile,String change){
-        
+    public boolean updateProfile(String name,int changeProfile,String change){
+        int pIndex = index(name);
+        if(pIndex!=-1){
+            Profile p = profileList.get(pIndex);
+            if(changeProfile%2==0){
+                updateProfileName(p,change);
+            }else{
+                updateProfileDescription(p,change);
+            }
+            return true;
+        }
+        return false;
     }
+
     private void updateProfileName(Profile p,String change){
-        
-    }
+        p.setDisplayName(change);
+   
     private void updateProfileDescription(Profile p, String change){
-    }
+            p.setDescription(change);
+        }
     }
