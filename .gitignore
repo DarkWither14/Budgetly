@@ -1,0 +1,9 @@
+# Compiled Java output
+out/
+
+# JDBC driver (downloaded automatically by run.ps1 / run.sh)
+lib/
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,25 +1,38 @@
 #!/bin/bash
 
-# Install Python dependencies if needed
-pip install -r charts/requirements.txt -q
+# ─────────────────────────────────────────────
+#  Budgetly – build & run (terminal mode)
+# ─────────────────────────────────────────────
 
-# Start the chart server in the background
-echo "Starting chart server on port 5050..."
-python3 charts/server.py &
-CHART_PID=$!
+LIB_DIR="lib"
+JDBC_JAR="$LIB_DIR/mysql-connector-j.jar"
+OUT_DIR="out"
 
-# Start the frontend server in the background
-echo "Starting frontend server on port 3000..."
-cd frontend && python3 -m http.server 3000 &
-FRONTEND_PID=$!
+# MySQL Connector/J 8.3.0 from Maven Central
+JDBC_URL="https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.3.0/mysql-connector-j-8.3.0.jar"
 
+# Download the JDBC driver if it's not already present
+if [ ! -f "$JDBC_JAR" ]; then
+    echo "Downloading MySQL JDBC driver..."
+    mkdir -p "$LIB_DIR"
+    curl -L "$JDBC_URL" -o "$JDBC_JAR"
+fi
+
+# Compile all Java source files
+echo "Compiling..."
+mkdir -p "$OUT_DIR"
+javac -cp ".:$JDBC_JAR" backend/*.java -d "$OUT_DIR"
+
+if [ $? -ne 0 ]; then
+    echo "Compilation failed."
+    exit 1
+fi
+
+echo "Starting Budgetly..."
 echo ""
-echo "Budgetly is running!"
-echo "  Frontend: http://localhost:3000"
-echo "  Charts:   http://localhost:5050"
-echo ""
-echo "Press Ctrl+C to stop."
 
-# Wait and clean up both servers on exit
-trap "kill $CHART_PID $FRONTEND_PID 2>/dev/null" EXIT
-wait
+# Run — set DB credentials via environment variables before running, e.g.:
+#   export BUDGETLY_DB_URL=jdbc:mysql://localhost:3306/budgetly
+#   export BUDGETLY_DB_USER=root
+#   export BUDGETLY_DB_PASS=yourpassword
+java -cp "$OUT_DIR:$JDBC_JAR" Main

@@ -1,78 +1,93 @@
-public class Account{
+import java.util.ArrayList;
+import java.util.List;
+
+public class Account {
     private int accountID;
     private String email;
     private int passwordHash;
     private List<Profile> profileList;
-    public Account(){
-       profileList = new ArrayList<>();   
+
+    public Account() {
+        profileList = new ArrayList<>();
     }
-    public Profile getProfile(String name){
+
+    public Profile getProfile(String name) {
         int i = index(name);
-        if(i!=-1){
-            Profile p = profileList.get(i);
-            return p;
+        if (i != -1) {
+            return profileList.get(i);
         }
         return null;
     }
-    public void addProfileToList(String name){
+
+    public void addProfileToList(String name) {
         int profileID = name.hashCode();
-        Profile p = makeProfile(profileID,name);
+        Profile p = makeProfile(profileID, name);
         addProfileToList(p);
-        
     }
-    public Profile deleteProfileList(String name){
+
+    public Profile deleteProfileList(String name) {
         int i = index(name);
-        if(i!=-1){
-            Profile p = profileList.remove(i);
-            return p;
+        if (i != -1) {
+            return profileList.remove(i);
         }
         return null;
     }
-    private void index(String name){
-        int size = profileList.size();
+
+    // Binary search by profile ID (list kept sorted by addProfileToList)
+    private int index(String name) {
         int id = name.hashCode();
-        int right = size - 1;
         int left = 0;
-        while(left<=right){
-            int m = (l+r)/2
+        int right = profileList.size() - 1;
+        while (left <= right) {
+            int m = (left + right) / 2;
             Profile p = profileList.get(m);
-            if(p.getProfileID()==id){
+            if (p.getID() == id) {
                 return m;
-            }else if(p.getProfileID()>m){
-                r = m - 1;
-            }else{
-                l = m+1;
+            } else if (p.getID() > id) {
+                right = m - 1;
+            } else {
+                left = m + 1;
             }
         }
         return -1;
     }
-    private void addProfileToList(Profile p){
+
+    // Insertion-sort to keep profileList sorted by profileID
+    private void addProfileToList(Profile p) {
         profileList.add(p);
-        for(int i = 1;i<profileList.size();i++){
+        for (int i = 1; i < profileList.size(); i++) {
             Profile cur = profileList.get(i);
-            int j = i-1;
-            while(j>=0&&profileList.get(j).getProfileID()>cur.getProfileID()){
-                profileList.set(profileList.get(j),j+1);
+            int j = i - 1;
+            while (j >= 0 && profileList.get(j).getID() > cur.getID()) {
+                profileList.set(j + 1, profileList.get(j));
                 j--;
             }
-            profileList.set(cur,j+1);
+            profileList.set(j + 1, cur);
         }
     }
-    private Profile makeProfile(int id,String name){
+
+    private Profile makeProfile(int id, String name) {
         Profile p = new Profile();
         p.setID(id);
         p.setDisplayName(name);
         return p;
     }
-    /**
-    Update profile
-    */
-    public void updateProfile(String name,int changeProfile,String change){
-        
+
+    // changeProfile: 1 = name, 2 = description
+    public void updateProfile(String name, int changeProfile, String change) {
+        Profile p = getProfile(name);
+        if (p == null) return;
+        switch (changeProfile) {
+            case 1 -> updateProfileName(p, change);
+            case 2 -> updateProfileDescription(p, change);
+        }
     }
-    private void updateProfileName(Profile p,String change){
-        
+
+    private void updateProfileName(Profile p, String change) {
+        p.setDisplayName(change);
     }
-    private void updateProfileDescription(Profile p, String change){
+
+    private void updateProfileDescription(Profile p, String change) {
+        p.setDescription(change);
     }
-    }
+}

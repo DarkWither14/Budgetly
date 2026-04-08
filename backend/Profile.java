@@ -1,42 +1,64 @@
-import java.util.*;
-public class Profile{
+import java.util.ArrayList;
+import java.util.List;
 
-  private int profileID;
-  private String displayName;
-  private List<TransactionGroup> transactionGroups;
-  private Account assocAccount;
-  private double bankRoll;
-  public Profile(){
+public class Profile {
 
-  }
-  public int getID(){
-    return profileID;
-  }
-  public String getDisplayName(){
-    return displayName;
-  }
-  public double getBankRoll(){
-    return bankroll;
-  }
-  public List<TransactionGroup> getTransactionGroups(){
-    return transactionGroups;
-  }
-  public Account getAssocAccount(){
-    return assocAccount;
-  }
-  public void setID(int id){
-    profileID = id;
-  }
-  public void setDisplayName(String name){
-    displayName = name;
-  }
-  public void setTransactionGroups(List<TransactionGroup> group){
-    transactionGroups = group;
-  }
-  public void setAssocAccount(Account account){
-    assocAccount = account;
-  }
-  public void setBankRoll(double amount){
-    bankroll = amount;
-  }
+    private int profileID;
+    private String displayName;
+    private String description;
+    private List<TransactionGroup> transactionGroups;
+    private Account assocAccount;
+    private double bankRoll;
+
+    public Profile() {
+        transactionGroups = new ArrayList<>();
+    }
+
+    public int getID() {
+        return profileID;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public double getBankRoll() {
+        return bankRoll;
+    }
+
+    public List<TransactionGroup> getTransactionGroups() {
+        return transactionGroups;
+    }
+
+    public Account getAssocAccount() {
+        return assocAccount;
+    }
+
+    public void setID(int id) {
+        profileID = id;
+    }
+
+    public void setDisplayName(String name) {
+        displayName = name;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public void setTransactionGroups(List<TransactionGroup> group) {
+        transactionGroups = group;
+    }
+
+    public void setAssocAccount(Account account) {
+        assocAccount = account;
+    }
+
+    public void setBankRoll(double amount) {
+        bankRoll = amount;
+    }
 }

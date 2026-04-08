@@ -38,6 +38,7 @@ public class Category {
     private String name;
     private String description;
     private CategoryType type;
+    private int profileId;
 
     // Constructor accepting type as a String
     public Category(int categoryId, String name, String description, String type, int profileId) {
