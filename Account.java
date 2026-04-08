@@ -6,6 +6,9 @@ public class Account{
     public Account(){
        profileList = new ArrayList<>();   
     }
+    public List<Profile> getProfileList(){
+        return profileList;
+    }
     public Profile getProfile(String name){
         int i = index(name);
         if(i!=-1){
@@ -28,7 +31,7 @@ public class Account{
         }
         return null;
     }
-    private void index(String name){
+    private int index(String name){
         int size = profileList.size();
         int id = name.hashCode();
         int right = size - 1;
