@@ -11,6 +11,27 @@ public class Account {
         profileList = new ArrayList<>();
     }
 
+    public int getAccountID() { return accountID; }
+
+    public void setAccountID(int accountID) {
+        if (accountID <= 0) throw new IllegalArgumentException("Account ID must be greater than 0.");
+        this.accountID = accountID;
+    }
+
+    public String getEmail() { return email; }
+
+    public void setEmail(String email) {
+        if (email == null || email.trim().isEmpty())
+            throw new IllegalArgumentException("Email cannot be blank.");
+        this.email = email.trim();
+    }
+
+    public int getPasswordHash() { return passwordHash; }
+
+    public void setPasswordHash(int passwordHash) { this.passwordHash = passwordHash; }
+
+    public List<Profile> getProfileList() { return profileList; }
+
     public Profile getProfile(String name) {
         int i = index(name);
         if (i != -1) {
@@ -52,8 +73,11 @@ public class Account {
         return -1;
     }
 
-    // Insertion-sort to keep profileList sorted by profileID
-    private void addProfileToList(Profile p) {
+    /**
+     * Adds an existing Profile object into the sorted list.
+     * Used by Controller to register a profile it already created.
+     */
+    public void addProfileToList(Profile p) {
         profileList.add(p);
         for (int i = 1; i < profileList.size(); i++) {
             Profile cur = profileList.get(i);
@@ -81,6 +105,21 @@ public class Account {
             case 1 -> updateProfileName(p, change);
             case 2 -> updateProfileDescription(p, change);
         }
+    }
+
+    /**
+     * Removes a profile from this account's list by its numeric ID.
+     * Used by Controller when deleting a profile.
+     *
+     * @return the removed Profile, or null if not found
+     */
+    public Profile removeProfileById(int id) {
+        for (int i = 0; i < profileList.size(); i++) {
+            if (profileList.get(i).getID() == id) {
+                return profileList.remove(i);
+            }
+        }
+        return null;
     }
 
     private void updateProfileName(Profile p, String change) {

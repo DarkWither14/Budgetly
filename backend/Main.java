@@ -1,40 +1,18 @@
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 /**
  * Terminal entry point for Budgetly.
  *
- * Data is currently held in memory using the existing model classes.
- * Each spot that will eventually call a DAO is marked with a TODO comment
- * so partners can slot in their database code without restructuring the menus.
- *
- * To wire in MySQL:
- *   1. Add your DAO classes (ProfileDAO, CategoryDAO, TransactionDAO, etc.)
- *   2. Replace every "TODO: DAO" comment below with the matching DAO call.
- *   3. Call DatabaseConnection.getConnection() at startup and
- *      DatabaseConnection.close() at shutdown (stubs are already here).
+ * Main only communicates with the Controller. All business logic, state
+ * management, and service/model interactions are handled by the Controller
+ * and the operations classes it delegates to.
  */
 public class Main {
 
-    // ── In-memory stores (replace with DAO calls once DB layer is ready) ─────
-    private static final List<Profile>          profiles     = new ArrayList<>();
-    private static final List<Category>         categories   = new ArrayList<>();
-    private static final List<Transaction>      transactions = new ArrayList<>();
-    private static final List<TransactionGroup> groups       = new ArrayList<>();
-
-    private static Profile activeProfile = null;
-
-    // Auto-increment counters — swap these out for DB-generated IDs later
-    private static final AtomicInteger profileSeq     = new AtomicInteger(1);
-    private static final AtomicInteger categorySeq    = new AtomicInteger(1);
-    private static final AtomicInteger transactionSeq = new AtomicInteger(1);
-    private static final AtomicInteger groupSeq       = new AtomicInteger(1);
-
-    private static final UserInput input = UserInput.getInstance();
+    private static final UserInput  input      = UserInput.getInstance();
+    private static final Controller controller = new Controller();
 
     // =========================================================================
     //  ENTRY POINT
@@ -43,7 +21,10 @@ public class Main {
     public static void main(String[] args) {
         printBanner();
 
-        // TODO: DAO — DatabaseConnection.getConnection(); then load data from MySQL
+        if (!loginMenu()) {
+            System.out.println("\nGoodbye!");
+            return;
+        }
 
         boolean running = true;
         while (running) {
@@ -60,9 +41,51 @@ public class Main {
             }
         }
 
-        // TODO: DAO — DatabaseConnection.close();
         System.out.println("\nGoodbye!");
     }
+
+    // =========================================================================
+    //  LOGIN / REGISTER
+    // =========================================================================
+
+    /** Returns true when the user is successfully logged in, false if they chose to exit. */
+    private static boolean loginMenu() {
+        while (true) {
+            System.out.println("\n── Account ──");
+            System.out.println("  1. Register");
+            System.out.println("  2. Login");
+            System.out.println("  3. Exit");
+            int choice = input.nextInt("Choice: ");
+            switch (choice) {
+                case 1 -> register();
+                case 2 -> loginAccount();
+                case 3 -> { return false; }
+                default -> System.out.println("  Invalid option.");
+            }
+            if (controller.isLoggedIn()) return true;
+        }
+    }
+
+    private static void register() {
+        String email    = input.nextLine("Email: ");
+        String password = input.nextLine("Password: ");
+        if (controller.registerAccount(email, password)) {
+            System.out.println("  Account created. You are now logged in as " + email + ".");
+        } else {
+            System.out.println("  That email is already registered. Please log in.");
+        }
+    }
+
+    private static void loginAccount() {
+        String email    = input.nextLine("Email: ");
+        String password = input.nextLine("Password: ");
+        if (controller.login(email, password)) {
+            System.out.println("  Welcome back, " + email + "!");
+        } else {
+            System.out.println("  Invalid email or password.");
+        }
+    }
+
 
     // =========================================================================
     //  MAIN MENU
@@ -75,10 +98,13 @@ public class Main {
     }
 
     private static void printMainMenu() {
-        String profileLabel = activeProfile != null
-                ? "[" + activeProfile.getDisplayName() + "]"
+        String profileLabel = controller.hasActiveProfile()
+                ? "[" + controller.getActiveProfile().getDisplayName() + "]"
                 : "[No Profile]";
-        System.out.println("\n── Main Menu " + profileLabel + " ──");
+        String accountLabel = controller.isLoggedIn()
+                ? controller.getActiveAccount().getEmail()
+                : "";
+        System.out.println("\n── Main Menu " + profileLabel + " (" + accountLabel + ") ──");
         System.out.println("  1. Profiles");
         System.out.println("  2. Categories");
         System.out.println("  3. Transactions");
@@ -98,28 +124,31 @@ public class Main {
             System.out.println("  1. List profiles");
             System.out.println("  2. Create profile");
             System.out.println("  3. Select active profile");
-            System.out.println("  4. Delete profile");
-            System.out.println("  5. Back");
+            System.out.println("  4. Update profile");
+            System.out.println("  5. Delete profile");
+            System.out.println("  6. Back");
             int choice = input.nextInt("Choice: ");
             switch (choice) {
                 case 1 -> listProfiles();
                 case 2 -> createProfile();
                 case 3 -> selectProfile();
-                case 4 -> deleteProfile();
-                case 5 -> back = true;
+                case 4 -> updateProfile();
+                case 5 -> deleteProfile();
+                case 6 -> back = true;
                 default -> System.out.println("  Invalid option.");
             }
         }
     }
 
     private static void listProfiles() {
-        // TODO: DAO — profiles = ProfileDAO.getAll();
+        List<Profile> profiles = controller.getProfiles();
         if (profiles.isEmpty()) { System.out.println("  No profiles found."); return; }
         System.out.println();
         System.out.printf("  %-4s  %-20s  %s%n", "ID", "Name", "Description");
         System.out.println("  " + "─".repeat(50));
         for (Profile p : profiles) {
-            String active = (activeProfile != null && activeProfile.getID() == p.getID()) ? " *" : "";
+            String active = (controller.hasActiveProfile()
+                    && controller.getActiveProfile().getID() == p.getID()) ? " *" : "";
             String desc   = p.getDescription() != null ? p.getDescription() : "—";
             System.out.printf("  %-4d  %-20s  %s%s%n", p.getID(), p.getDisplayName(), desc, active);
         }
@@ -128,47 +157,41 @@ public class Main {
     private static void createProfile() {
         String name = input.nextLine("Name: ");
         String desc = input.nextLine("Description (optional, press Enter to skip): ");
-
-        Profile p = new Profile();
-        p.setID(profileSeq.getAndIncrement());
-        p.setDisplayName(name);
-        p.setDescription(desc.isBlank() ? null : desc);
-        p.setBankRoll(0.0);
-
-        profiles.add(p);
-        if (activeProfile == null) activeProfile = p;
-
-        // TODO: DAO — ProfileDAO.insert(p);
+        controller.createProfile(name, desc);
         System.out.println("  Profile '" + name + "' created.");
     }
 
     private static void selectProfile() {
         listProfiles();
-        if (profiles.isEmpty()) return;
+        if (controller.getProfiles().isEmpty()) return;
         int id = input.nextInt("Enter profile ID: ");
-        profiles.stream()
-                .filter(p -> p.getID() == id)
-                .findFirst()
-                .ifPresentOrElse(
-                    p -> { activeProfile = p; System.out.println("  Active profile: " + p.getDisplayName()); },
-                    ()  -> System.out.println("  Profile not found.")
-                );
+        if (controller.selectProfile(id)) {
+            System.out.println("  Active profile: " + controller.getActiveProfile().getDisplayName());
+        } else {
+            System.out.println("  Profile not found.");
+        }
     }
 
     private static void deleteProfile() {
         listProfiles();
-        if (profiles.isEmpty()) return;
+        if (controller.getProfiles().isEmpty()) return;
         int id = input.nextInt("Enter profile ID to delete: ");
-        boolean removed = profiles.removeIf(p -> p.getID() == id);
-        if (removed) {
-            transactions.removeIf(t -> t.getProfileId() == id);
-            categories.removeIf(c -> c.getProfileId() == id);
-            groups.clear(); // groups are profile-scoped; clear active profile's groups
-            if (activeProfile != null && activeProfile.getID() == id) {
-                activeProfile = profiles.isEmpty() ? null : profiles.get(0);
-            }
-            // TODO: DAO — ProfileDAO.delete(id);
+        if (controller.deleteProfile(id)) {
             System.out.println("  Profile deleted.");
+        } else {
+            System.out.println("  Profile not found.");
+        }
+    }
+
+    private static void updateProfile() {
+        listProfiles();
+        if (controller.getProfiles().isEmpty()) return;
+        int id = input.nextInt("Enter profile ID to update: ");
+        System.out.println("  Field:  1=name  2=description");
+        int field = input.nextInt("Choice: ");
+        String value = input.nextLine("New value: ");
+        if (controller.updateProfile(id, field, value)) {
+            System.out.println("  Profile updated.");
         } else {
             System.out.println("  Profile not found.");
         }
@@ -182,7 +205,7 @@ public class Main {
         if (requireActiveProfile()) return;
         boolean back = false;
         while (!back) {
-            System.out.println("\n── Categories [" + activeProfile.getDisplayName() + "] ──");
+            System.out.println("\n── Categories [" + controller.getActiveProfile().getDisplayName() + "] ──");
             System.out.println("  1. List categories");
             System.out.println("  2. Add category");
             System.out.println("  3. Delete category");
@@ -199,13 +222,12 @@ public class Main {
     }
 
     private static void listCategories() {
-        // TODO: DAO — categories = CategoryDAO.getByProfile(activeProfile.getID());
-        List<Category> mine = categoriesForProfile();
-        if (mine.isEmpty()) { System.out.println("  No categories."); return; }
+        List<Category> cats = controller.getCategoriesForActiveProfile();
+        if (cats.isEmpty()) { System.out.println("  No categories."); return; }
         System.out.println();
         System.out.printf("  %-4s  %-20s  %-8s  %s%n", "ID", "Name", "Type", "Description");
         System.out.println("  " + "─".repeat(60));
-        for (Category c : mine) {
+        for (Category c : cats) {
             String desc = c.getDescription() != null ? c.getDescription() : "—";
             System.out.printf("  %-4d  %-20s  %-8s  %s%n",
                     c.getCategoryId(), c.getName(), c.getType(), desc);
@@ -223,12 +245,7 @@ public class Main {
         };
         String desc = input.nextLine("Description (optional): ");
         try {
-            Category c = new Category(
-                    categorySeq.getAndIncrement(), name,
-                    desc.isBlank() ? null : desc,
-                    type, activeProfile.getID());
-            categories.add(c);
-            // TODO: DAO — CategoryDAO.insert(c);
+            controller.addCategory(name, type, desc);
             System.out.println("  Category '" + name + "' created.");
         } catch (IllegalArgumentException e) {
             System.out.println("  Error: " + e.getMessage());
@@ -237,12 +254,9 @@ public class Main {
 
     private static void deleteCategory() {
         listCategories();
-        if (categoriesForProfile().isEmpty()) return;
+        if (controller.getCategoriesForActiveProfile().isEmpty()) return;
         int id = input.nextInt("Enter category ID to delete: ");
-        boolean removed = categories.removeIf(
-                c -> c.getCategoryId() == id && c.getProfileId() == activeProfile.getID());
-        if (removed) {
-            // TODO: DAO — CategoryDAO.delete(id);
+        if (controller.removeCategory(id)) {
             System.out.println("  Category deleted.");
         } else {
             System.out.println("  Category not found.");
@@ -257,7 +271,7 @@ public class Main {
         if (requireActiveProfile()) return;
         boolean back = false;
         while (!back) {
-            System.out.println("\n── Transactions [" + activeProfile.getDisplayName() + "] ──");
+            System.out.println("\n── Transactions [" + controller.getActiveProfile().getDisplayName() + "] ──");
             System.out.println("  1. List transactions");
             System.out.println("  2. Add transaction");
             System.out.println("  3. Delete transaction");
@@ -274,14 +288,13 @@ public class Main {
     }
 
     private static void listTransactions() {
-        // TODO: DAO — transactions = TransactionDAO.getByProfile(activeProfile.getID());
-        List<Transaction> mine = transactionsForProfile();
-        if (mine.isEmpty()) { System.out.println("  No transactions."); return; }
+        List<Transaction> txs = controller.getTransactionsForActiveProfile();
+        if (txs.isEmpty()) { System.out.println("  No transactions."); return; }
         System.out.println();
         System.out.printf("  %-4s  %-12s  %-8s  %-10s  %-6s  %s%n",
                 "ID", "Date", "Type", "Amount", "Cat.", "Note");
         System.out.println("  " + "─".repeat(65));
-        for (Transaction t : mine) {
+        for (Transaction t : txs) {
             String note = t.getNote() != null ? t.getNote() : "—";
             System.out.printf("  %-4d  %-12s  %-8s  $%-9.2f  %-6d  %s%n",
                     t.getTransactionId(), t.getDate(), t.getType(),
@@ -290,8 +303,14 @@ public class Main {
     }
 
     private static void createTransaction() {
+        if (controller.getGroupsForActiveProfile().isEmpty()) {
+            System.out.println("  Create a group first. Transactions must belong to a group.");
+            return;
+        }
+        listGroups();
+        int gid = input.nextInt("Group ID to add transaction to: ");
         listCategories();
-        if (categoriesForProfile().isEmpty()) {
+        if (controller.getCategoriesForActiveProfile().isEmpty()) {
             System.out.println("  Add a category first.");
             return;
         }
@@ -310,13 +329,7 @@ public class Main {
                 date = LocalDate.now();
             }
             String note = input.nextLine("Note (optional): ");
-
-            Transaction t = new Transaction(
-                    transactionSeq.getAndIncrement(), amount, type, catId,
-                    date, note.isBlank() ? null : note, null, null,
-                    activeProfile.getID());
-            transactions.add(t);
-            // TODO: DAO — TransactionDAO.insert(t);
+            controller.addTransaction(gid, amount, type, catId, date, note);
             System.out.println("  Transaction added.");
         } catch (IllegalArgumentException e) {
             System.out.println("  Error: " + e.getMessage());
@@ -325,12 +338,9 @@ public class Main {
 
     private static void deleteTransaction() {
         listTransactions();
-        if (transactionsForProfile().isEmpty()) return;
+        if (controller.getTransactionsForActiveProfile().isEmpty()) return;
         int id = input.nextInt("Enter transaction ID to delete: ");
-        boolean removed = transactions.removeIf(
-                t -> t.getTransactionId() == id && t.getProfileId() == activeProfile.getID());
-        if (removed) {
-            // TODO: DAO — TransactionDAO.delete(id);
+        if (controller.removeTransaction(id)) {
             System.out.println("  Transaction deleted.");
         } else {
             System.out.println("  Transaction not found.");
@@ -345,34 +355,31 @@ public class Main {
         if (requireActiveProfile()) return;
         boolean back = false;
         while (!back) {
-            System.out.println("\n── Transaction Groups [" + activeProfile.getDisplayName() + "] ──");
+            System.out.println("\n── Transaction Groups [" + controller.getActiveProfile().getDisplayName() + "] ──");
             System.out.println("  1. List groups");
             System.out.println("  2. Create group");
-            System.out.println("  3. Add transaction to group");
-            System.out.println("  4. View group transactions");
-            System.out.println("  5. Delete group");
-            System.out.println("  6. Back");
+            System.out.println("  3. View group transactions");
+            System.out.println("  4. Delete group");
+            System.out.println("  5. Back");
             int choice = input.nextInt("Choice: ");
             switch (choice) {
                 case 1 -> listGroups();
                 case 2 -> createGroup();
-                case 3 -> addTransactionToGroup();
-                case 4 -> viewGroupTransactions();
-                case 5 -> deleteGroup();
-                case 6 -> back = true;
+                case 3 -> viewGroupTransactions();
+                case 4 -> deleteGroup();
+                case 5 -> back = true;
                 default -> System.out.println("  Invalid option.");
             }
         }
     }
 
     private static void listGroups() {
-        // TODO: DAO — groups = TransactionGroupDAO.getByProfile(activeProfile.getID());
-        List<TransactionGroup> mine = groupsForProfile();
-        if (mine.isEmpty()) { System.out.println("  No groups."); return; }
+        List<TransactionGroup> groups = controller.getGroupsForActiveProfile();
+        if (groups.isEmpty()) { System.out.println("  No groups."); return; }
         System.out.println();
         System.out.printf("  %-4s  %-22s  %-14s  %s%n", "ID", "Name", "Transactions", "Description");
         System.out.println("  " + "─".repeat(60));
-        for (TransactionGroup g : mine) {
+        for (TransactionGroup g : groups) {
             String desc = g.getDescription() != null ? g.getDescription() : "—";
             System.out.printf("  %-4d  %-22s  %-14d  %s%n",
                     g.getGroupId(), g.getName(), g.getTransactionList().size(), desc);
@@ -383,82 +390,44 @@ public class Main {
         String name = input.nextLine("Group name: ");
         String desc = input.nextLine("Description (optional): ");
         try {
-            TransactionGroup g = new TransactionGroup(
-                    groupSeq.getAndIncrement(), name,
-                    desc.isBlank() ? null : desc, null);
-            groups.add(g);
-            activeProfile.getTransactionGroups().add(g);
-            // TODO: DAO — TransactionGroupDAO.insert(g, activeProfile.getID());
+            controller.addGroup(name, desc);
             System.out.println("  Group '" + name + "' created.");
         } catch (IllegalArgumentException e) {
             System.out.println("  Error: " + e.getMessage());
         }
     }
 
-    private static void addTransactionToGroup() {
-        listGroups();
-        List<TransactionGroup> mine = groupsForProfile();
-        if (mine.isEmpty()) return;
-        int gid = input.nextInt("Group ID: ");
-
-        listTransactions();
-        if (transactionsForProfile().isEmpty()) return;
-        int tid = input.nextInt("Transaction ID: ");
-
-        TransactionGroup targetGroup = mine.stream()
-                .filter(g -> g.getGroupId() == gid)
-                .findFirst().orElse(null);
-
-        if (targetGroup == null) { System.out.println("  Group not found."); return; }
-
-        Transaction targetTx = transactions.stream()
-                .filter(t -> t.getTransactionId() == tid
-                          && t.getProfileId() == activeProfile.getID())
-                .findFirst().orElse(null);
-
-        if (targetTx == null) { System.out.println("  Transaction not found."); return; }
-
-        targetGroup.addTransacToList(targetTx);
-        // TODO: DAO — TransactionGroupDAO.addTransaction(gid, tid);
-        System.out.println("  Transaction added to group.");
-    }
-
     private static void viewGroupTransactions() {
         listGroups();
-        List<TransactionGroup> mine = groupsForProfile();
-        if (mine.isEmpty()) return;
+        if (controller.getGroupsForActiveProfile().isEmpty()) return;
         int gid = input.nextInt("Group ID: ");
 
-        mine.stream()
-            .filter(g -> g.getGroupId() == gid)
-            .findFirst()
-            .ifPresentOrElse(g -> {
-                if (g.getTransactionList().isEmpty()) {
-                    System.out.println("  No transactions in this group.");
-                    return;
-                }
-                System.out.println("\n  Transactions in group '" + g.getName() + "':");
-                System.out.printf("  %-4s  %-12s  %-8s  %-10s  %s%n",
-                        "ID", "Date", "Type", "Amount", "Note");
-                System.out.println("  " + "─".repeat(55));
-                for (Transaction t : g.getTransactionList()) {
-                    String note = t.getNote() != null ? t.getNote() : "—";
-                    System.out.printf("  %-4d  %-12s  %-8s  $%-9.2f  %s%n",
-                            t.getTransactionId(), t.getDate(), t.getType(),
-                            t.getAmount(), note);
-                }
-            }, () -> System.out.println("  Group not found."));
+        List<Transaction> txs = controller.getGroupTransactions(gid);
+        if (txs == null) {
+            System.out.println("  Group not found.");
+            return;
+        }
+        if (txs.isEmpty()) {
+            System.out.println("  No transactions in this group.");
+            return;
+        }
+        System.out.println("\n  Transactions in group '" + controller.getGroupName(gid) + "':");
+        System.out.printf("  %-4s  %-12s  %-8s  %-10s  %s%n",
+                "ID", "Date", "Type", "Amount", "Note");
+        System.out.println("  " + "─".repeat(55));
+        for (Transaction t : txs) {
+            String note = t.getNote() != null ? t.getNote() : "—";
+            System.out.printf("  %-4d  %-12s  %-8s  $%-9.2f  %s%n",
+                    t.getTransactionId(), t.getDate(), t.getType(),
+                    t.getAmount(), note);
+        }
     }
 
     private static void deleteGroup() {
         listGroups();
-        List<TransactionGroup> mine = groupsForProfile();
-        if (mine.isEmpty()) return;
+        if (controller.getGroupsForActiveProfile().isEmpty()) return;
         int id = input.nextInt("Enter group ID to delete: ");
-        boolean removed = groups.removeIf(g -> g.getGroupId() == id);
-        if (removed) {
-            activeProfile.getTransactionGroups().removeIf(g -> g.getGroupId() == id);
-            // TODO: DAO — TransactionGroupDAO.delete(id);
+        if (controller.removeGroup(id)) {
             System.out.println("  Group and its transactions deleted.");
         } else {
             System.out.println("  Group not found.");
@@ -473,7 +442,7 @@ public class Main {
         if (requireActiveProfile()) return;
         boolean back = false;
         while (!back) {
-            System.out.println("\n── Reports [" + activeProfile.getDisplayName() + "] ──");
+            System.out.println("\n── Reports [" + controller.getActiveProfile().getDisplayName() + "] ──");
             System.out.println("  1. Summary");
             System.out.println("  2. All transactions");
             System.out.println("  3. Net balance");
@@ -483,24 +452,14 @@ public class Main {
             System.out.println("  7. Chart: income vs expenses by month");
             System.out.println("  8. Back");
             int choice = input.nextInt("Choice: ");
-
-            // Sync active profile's transaction groups with in-memory groups
-            activeProfile.setTransactionGroups(groupsForProfile());
-
-            List<Transaction> mine = transactionsForProfile();
-            List<Category>    cats = categoriesForProfile();
-
-            ReportGenerator rg = new ReportGenerator();
-            rg.addProfile(activeProfile);
-
             switch (choice) {
-                case 1 -> rg.generateReport("summary");
-                case 2 -> rg.generateReport("transactions");
-                case 3 -> rg.generateReport("balance");
-                case 4 -> ChartPrinter.printCategoryChart(mine, cats, "expense");
-                case 5 -> ChartPrinter.printCategoryChart(mine, cats, "income");
-                case 6 -> ChartPrinter.printMonthlyTrend(mine);
-                case 7 -> ChartPrinter.printIncomeVsExpense(mine);
+                case 1 -> controller.generateReport("summary");
+                case 2 -> controller.generateReport("transactions");
+                case 3 -> controller.generateReport("balance");
+                case 4 -> controller.printCategoryChart("expense");
+                case 5 -> controller.printCategoryChart("income");
+                case 6 -> controller.printMonthlyTrend();
+                case 7 -> controller.printIncomeVsExpense();
                 case 8 -> back = true;
                 default -> System.out.println("  Invalid option.");
             }
@@ -513,28 +472,10 @@ public class Main {
 
     /** Returns true (and prints a message) if no profile is active. */
     private static boolean requireActiveProfile() {
-        if (activeProfile == null) {
+        if (!controller.hasActiveProfile()) {
             System.out.println("  No active profile. Go to Profiles → Create/Select first.");
             return true;
         }
         return false;
-    }
-
-    private static List<Category> categoriesForProfile() {
-        return categories.stream()
-                .filter(c -> c.getProfileId() == activeProfile.getID())
-                .collect(Collectors.toList());
-    }
-
-    private static List<Transaction> transactionsForProfile() {
-        return transactions.stream()
-                .filter(t -> t.getProfileId() == activeProfile.getID())
-                .collect(Collectors.toList());
-    }
-
-    private static List<TransactionGroup> groupsForProfile() {
-        // Groups are stored globally; filter by what belongs to the active profile.
-        // TODO: DAO — once partners add TransactionGroupDAO, filter by profileId from DB.
-        return new ArrayList<>(groups);
     }
 }

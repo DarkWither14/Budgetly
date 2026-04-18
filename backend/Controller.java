@@ -1,9 +1,12 @@
-import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 /**
  * Controller coordinates high-level create/delete operations for Accounts,
@@ -21,13 +24,26 @@ public class Controller {
     private AccountOperations accOperations;
     private TransactionOperations transOperations;
     private CategoryOperations categoryOperations;
+    private VerifyData verifyData;
 
-    private final Map<Integer, Account> accounts;
+    // ── Account / session state ───────────────────────────────────────────────
+    private Account activeAccount;
+
+    // ── Profile state ─────────────────────────────────────────────────────────
+    private final List<Profile> profiles;
+    private Profile              activeProfile;
+
+    // ── ID-keyed maps (used by diagram-compliant methods and profile-scoped ops) ─
+    private final Map<Integer, Account>          accounts;
     private final Map<Integer, TransactionGroup> transactionGroups;
-    private final Map<Integer, Transaction> transactions;
-    private final Map<Integer, Category> categories;
+    private final Map<Integer, Transaction>      transactions;
+    private final Map<Integer, Category>         categories;
 
-   
+    // ── Auto-increment counters ───────────────────────────────────────────────
+    private final AtomicInteger profileSeq     = new AtomicInteger(1);
+    private final AtomicInteger transactionSeq = new AtomicInteger(1);
+    private final AtomicInteger groupSeq       = new AtomicInteger(1);
+
     private int activeProfileId;
 
     public Controller() {
@@ -35,14 +51,18 @@ public class Controller {
     }
 
     public Controller(int activeProfileId) {
-        this.accOperations = new AccountOperations();
-        this.transOperations = new TransactionOperations();
+        this.accOperations      = new AccountOperations();
+        this.transOperations    = new TransactionOperations();
         this.categoryOperations = new CategoryOperations();
-        this.accounts = new HashMap<>();
-        this.transactionGroups = new HashMap<>();
-        this.transactions = new HashMap<>();
-        this.categories = new HashMap<>();
-        this.activeProfileId = activeProfileId;
+        this.profiles           = new ArrayList<>();
+        this.activeProfile      = null;
+        this.accounts           = new HashMap<>();
+        this.transactionGroups  = new HashMap<>();
+        this.transactions       = new HashMap<>();
+        this.categories         = new HashMap<>();
+        this.activeAccount      = null;
+        this.activeProfileId    = activeProfileId;
+        this.verifyData         = new VerifyData(this);
     }
 
     public AccountOperations getAccOperations() {
@@ -68,6 +88,278 @@ public class Controller {
         this.activeProfileId = activeProfileId;
     }
 
+    public VerifyData getVerifyData() { return verifyData; }
+
+    // =========================================================================
+    //  ACCOUNT / SESSION OPERATIONS
+    // =========================================================================
+
+    /**
+     * Registers a new account with the given email and password.
+     * The password is stored as a hash. Logs the new user in automatically.
+     *
+     * @return true if registration succeeded, false if the email is already taken
+     */
+    public boolean registerAccount(String email, String password) {
+        if (email == null || email.trim().isEmpty())
+            throw new IllegalArgumentException("Email cannot be blank.");
+        for (Account acc : accounts.values()) {
+            if (acc.getEmail().equalsIgnoreCase(email.trim())) return false;
+        }
+        int id = accounts.size() + 1;
+        Account account = new Account();
+        account.setAccountID(id);
+        account.setEmail(email.trim());
+        account.setPasswordHash(password.hashCode());
+        accounts.put(id, account);
+        accOperations.setAccount(account);
+        activeAccount = account;
+        return true;
+    }
+
+    /**
+     * Logs in with the given email and password.
+     *
+     * @return true if credentials matched, false otherwise
+     */
+    public boolean login(String email, String password) {
+        for (Account acc : accounts.values()) {
+            if (acc.getEmail().equalsIgnoreCase(email.trim())
+                    && acc.getPasswordHash() == password.hashCode()) {
+                activeAccount = acc;
+                accOperations.setAccount(acc);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void logout() {
+        activeAccount  = null;
+        activeProfile  = null;
+        activeProfileId = 1;
+        accOperations.setAccount(null);
+    }
+
+    public boolean isLoggedIn() { return activeAccount != null; }
+
+    public Account getActiveAccount() { return activeAccount; }
+
+
+
+    public void createProfile(String name, String desc) {
+        Profile p = new Profile();
+        p.setID(profileSeq.getAndIncrement());
+        p.setDisplayName(name);
+        p.setDescription(desc == null || desc.isBlank() ? null : desc);
+        p.setBankRoll(0.0);
+        profiles.add(p);
+        if (activeAccount != null) {
+            activeAccount.addProfileToList(p);
+        }
+        accOperations.addProfileDB(p);
+        if (activeProfile == null) {
+            activeProfile = p;
+            activeProfileId = p.getID();
+        }
+    }
+
+    public List<Profile> getProfiles() {
+        return new ArrayList<>(profiles);
+    }
+
+    public boolean selectProfile(int id) {
+        for (Profile p : profiles) {
+            if (p.getID() == id) {
+                activeProfile = p;
+                activeProfileId = p.getID();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public boolean deleteProfile(int id) {
+        Profile toDelete = null;
+        for (Profile p : profiles) {
+            if (p.getID() == id) { toDelete = p; break; }
+        }
+        if (toDelete == null) return false;
+        profiles.remove(toDelete);
+        transactions.entrySet().removeIf(e -> e.getValue().getProfileId() == id);
+        categories.entrySet().removeIf(e -> e.getValue().getProfileId() == id);
+        transactionGroups.clear();
+        if (activeAccount != null) {
+            activeAccount.removeProfileById(id);
+        }
+        if (activeProfile != null && activeProfile.getID() == id) {
+            activeProfile = profiles.isEmpty() ? null : profiles.get(0);
+            activeProfileId = activeProfile != null ? activeProfile.getID() : 1;
+        }
+        accOperations.deleteProfileDB(toDelete);
+        return true;
+    }
+
+    public Profile getActiveProfile() {
+        return activeProfile;
+    }
+
+    public boolean hasActiveProfile() {
+        return activeProfile != null;
+    }
+
+    /**
+     * Updates a profile field. field: 1 = display name, 2 = description.
+     */
+    public boolean updateProfile(int id, int field, String value) {
+        for (Profile p : profiles) {
+            if (p.getID() == id) {
+                if (field == 1) p.setDisplayName(value);
+                else if (field == 2) p.setDescription(value.isBlank() ? null : value);
+                accOperations.updateProfileDB(p);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // =========================================================================
+    //  CATEGORY OPERATIONS (profile-scoped, used by Main via Controller)
+    // =========================================================================
+
+    public void addCategory(String name, String type, String desc) {
+        int id = nextAvailableCategoryId();
+        Category c = new Category(
+                id, name,
+                desc == null || desc.isBlank() ? null : desc,
+                type, activeProfileId);
+        categories.put(id, c);
+        categoryOperations.setCategory(c);
+        categoryOperations.createCategoryDB(id, name);
+    }
+
+    public List<Category> getCategoriesForActiveProfile() {
+        return categories.values().stream()
+                .filter(c -> c.getProfileId() == activeProfileId)
+                .collect(Collectors.toList());
+    }
+
+    public boolean removeCategory(int id) {
+        Category c = categories.get(id);
+        if (c == null || c.getProfileId() != activeProfileId) return false;
+        categories.remove(id);
+        categoryOperations.deleteCategoryDB(id);
+        return true;
+    }
+
+    // =========================================================================
+    //  TRANSACTION OPERATIONS (profile-scoped, used by Main via Controller)
+    // =========================================================================
+
+    /**
+     * Creates a Transaction inside the specified group (composition).
+     * A Transaction cannot exist without a parent TransactionGroup.
+     */
+    public void addTransaction(int groupId, double amount, String type, int catId, LocalDate date, String note) {
+        TransactionGroup group = transactionGroups.get(groupId);
+        if (group == null) {
+            throw new IllegalArgumentException("Group not found with ID " + groupId + ".");
+        }
+        int id = transactionSeq.getAndIncrement();
+        Transaction t = new Transaction(
+                id, amount, type, catId,
+                date, note == null || note.isBlank() ? null : note,
+                null, groupId, activeProfileId);
+        group.addTransacToList(t);
+        transactions.put(id, t);
+        transOperations.createTransactionDB(t);
+    }
+
+    public List<Transaction> getTransactionsForActiveProfile() {
+        return transactionGroups.values().stream()
+                .flatMap(g -> g.getTransactionList().stream())
+                .filter(t -> t.getProfileId() == activeProfileId)
+                .collect(Collectors.toList());
+    }
+
+    public boolean removeTransaction(int id) {
+        Transaction t = transactions.get(id);
+        if (t == null || t.getProfileId() != activeProfileId) return false;
+        Integer groupId = t.getTransactionGroupId();
+        if (groupId != null) {
+            TransactionGroup g = transactionGroups.get(groupId);
+            if (g != null) g.deleteTransacFromList(id);
+        }
+        transactions.remove(id);
+        transOperations.deleteTransactionDB(id);
+        return true;
+    }
+
+    // =========================================================================
+    //  TRANSACTION GROUP OPERATIONS (profile-scoped, used by Main via Controller)
+    // =========================================================================
+
+    public void addGroup(String name, String desc) {
+        int id = groupSeq.getAndIncrement();
+        TransactionGroup g = new TransactionGroup(
+                id, name,
+                desc == null || desc.isBlank() ? null : desc, null);
+        transactionGroups.put(id, g);
+        activeProfile.getTransactionGroups().add(g);
+        transOperations.setTransactionGroup(g);
+        transOperations.createTransactionGroupDB(g);
+    }
+
+    public List<TransactionGroup> getGroupsForActiveProfile() {
+        return new ArrayList<>(transactionGroups.values());
+    }
+
+    public List<Transaction> getGroupTransactions(int gid) {
+        TransactionGroup g = transactionGroups.get(gid);
+        return g != null ? g.getTransactionList() : null;
+    }
+
+    public String getGroupName(int gid) {
+        TransactionGroup g = transactionGroups.get(gid);
+        return g != null ? g.getName() : null;
+    }
+
+    public boolean removeGroup(int id) {
+        TransactionGroup g = transactionGroups.remove(id);
+        if (g == null) return false;
+        if (activeProfile != null) {
+            activeProfile.getTransactionGroups().removeIf(gr -> gr.getGroupId() == id);
+        }
+        transOperations.deleteTransactionGroupDB(id);
+        return true;
+    }
+
+    // =========================================================================
+    //  REPORT OPERATIONS (used by Main via Controller)
+    // =========================================================================
+
+    public void generateReport(String type) {
+        activeProfile.setTransactionGroups(getGroupsForActiveProfile());
+        ReportGenerator rg = new ReportGenerator();
+        rg.addProfile(activeProfile);
+        rg.generateReport(type);
+    }
+
+    public void printCategoryChart(String chartType) {
+        ChartPrinter.printCategoryChart(
+                getTransactionsForActiveProfile(),
+                getCategoriesForActiveProfile(),
+                chartType);
+    }
+
+    public void printMonthlyTrend() {
+        ChartPrinter.printMonthlyTrend(getTransactionsForActiveProfile());
+    }
+
+    public void printIncomeVsExpense() {
+        ChartPrinter.printIncomeVsExpense(getTransactionsForActiveProfile());
+    }
+
     /**
      * Supports the class diagram method:
      * createAccount(accID:int, email:String, passHash:int): void
@@ -79,12 +371,10 @@ public class Controller {
         if (email == null || email.trim().isEmpty()) {
             throw new IllegalArgumentException("Email cannot be blank.");
         }
-
         Account account = new Account();
-        setAccountField(account, "accountID", accID);
-        setAccountField(account, "email", email.trim());
-        setAccountField(account, "passwordHash", passHash);
-
+        account.setAccountID(accID);
+        account.setEmail(email.trim());
+        account.setPasswordHash(passHash);
         accounts.put(accID, account);
         accOperations.setAccount(account);
     }
@@ -316,15 +606,5 @@ public class Controller {
             nextId++;
         }
         return nextId;
-    }
-
-    private void setAccountField(Account account, String fieldName, Object value) {
-        try {
-            Field field = Account.class.getDeclaredField(fieldName);
-            field.setAccessible(true);
-            field.set(account, value);
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException("Unable to set Account field '" + fieldName + "'.", e);
-        }
     }
 }
