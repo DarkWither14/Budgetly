@@ -1,8 +1,5 @@
-public abstract class DBOperations {
-
+public abstract class DBOperations<T> {
     protected DatabaseConnection conn = null;
-
-    protected abstract boolean create(Category category);
-
-    protected abstract boolean delete(Category category);
+    protected abstract boolean create(T obj);
+    protected abstract boolean delete(T obj);
 }

@@ -38,7 +38,6 @@ public class MySQLDatabaseConnection extends DatabaseConnection {
      *
      * @return the shared {@link MySQLDatabaseConnection}
      */
-    @SuppressWarnings("DoubleCheckedLocking")
     public static MySQLDatabaseConnection getInstance() {
         if (instance == null) {
             synchronized (MySQLDatabaseConnection.class) {
@@ -57,7 +56,7 @@ public class MySQLDatabaseConnection extends DatabaseConnection {
      * @throws SQLException if the connection cannot be established
      */
     @Override
-    public Connection getConnection() throws SQLException {
+    public synchronized Connection getConnection() throws SQLException {
         if (connection == null || connection.isClosed()) {
             connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
         }
