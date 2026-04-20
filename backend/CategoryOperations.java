@@ -1,22 +1,29 @@
 // This needs to be somewhere
 //import java.sql.*;
 
-public class CategoryOperations {
+public class CategoryOperations extends DBOperations {
 	private Category category;
 
-	public boolean createCategoryDB(int id, String name) {
+	@Override
+	protected boolean create(Category category) {
+		if (category == null || category.getCategoryId() <= 0) {
+			throw new IllegalArgumentException("Invalid category or category ID.");
+		}
 		String query = "INSERT INTO Category VALUES (%d, %s, %s, %s)";
-		// Are we using the category variable or the parameters?
-		String.format(query, id, name, category.getType().toString(), category.getDescription());
-		
+		String formatted = String.format(query, category.getCategoryId(), category.getName(), category.getType().toString(), category.getDescription());
+		// TODO: Execute the query using your DB connection
 		return true;
 	}
 
-	public boolean deleteCategoryDB(int id) {
-		//								           replace "id" with name of ID field in DB
-		String query = "DELETE FROM Category where id = %d";
-		String.format(query, id);
-		
+	@Override
+	protected boolean delete(Category category) {
+		if (category == null || category.getCategoryId() <= 0) {
+			throw new IllegalArgumentException("Invalid category or category ID.");
+		}
+		// replace "id" with name of ID field in DB
+		String query = "DELETE FROM Category WHERE id = %d";
+		String formatted = String.format(query, category.getCategoryId());
+		// TODO: Execute the query using your DB connection
 		return true;
 	}
 

@@ -16,12 +16,13 @@ public class Transaction {
 
             String normalized = value.trim().toUpperCase();
             switch (normalized) {
-                case "INCOME":
+                case "INCOME" -> {
                     return INCOME;
-                case "EXPENSE":
+                }
+                case "EXPENSE" -> {
                     return EXPENSE;
-                default:
-                    throw new IllegalArgumentException("Type must be 'income' or 'expense'.");
+                }
+                default -> throw new IllegalArgumentException("Type must be 'income' or 'expense'.");
             }
         }
 
@@ -48,30 +49,61 @@ public class Transaction {
     public Transaction(int transactionId, double amount, String type, int categoryId,
                        LocalDate date, String note, String receiptPath,
                        Integer transactionGroupId, int profileId) {
-        setTransactionId(transactionId);
-        setAmount(amount);
-        setType(type);
-        setCategoryId(categoryId);
-        setDate(date);
-        setNote(note);
-        setReceiptPath(receiptPath);
-        setTransactionGroupId(transactionGroupId);
-        setProfileId(profileId);
+        if (transactionId <= 0) {
+            throw new IllegalArgumentException("Transaction ID must be greater than 0.");
+        }
+        if (amount <= 0) {
+            throw new IllegalArgumentException("Amount must be greater than 0.");
+        }
+        if (type == null) {
+            throw new IllegalArgumentException("Type cannot be null.");
+        }
+        this.transactionId = transactionId;
+        this.amount = amount;
+        this.type = TransactionType.fromString(type);
+        this.categoryId = categoryId;
+        this.date = date;
+        this.note = note;
+        this.receiptPath = receiptPath;
+        this.transactionGroupId = transactionGroupId;
+        this.profileId = profileId;
     }
 
     // Constructor accepting a Category object; validates and assigns categoryId
     public Transaction(int transactionId, double amount, String type, Category category,
                        LocalDate date, String note, String receiptPath,
                        Integer transactionGroupId, int profileId) {
-        setTransactionId(transactionId);
-        setAmount(amount);
-        setType(type);
-        setDate(date);
-        setNote(note);
-        setReceiptPath(receiptPath);
-        setTransactionGroupId(transactionGroupId);
-        setProfileId(profileId);
-        assignCategory(category);
+        if (transactionId <= 0) {
+            throw new IllegalArgumentException("Transaction ID must be greater than 0.");
+        }
+        if (amount <= 0) {
+            throw new IllegalArgumentException("Amount must be greater than 0.");
+        }
+        if (type == null) {
+            throw new IllegalArgumentException("Type cannot be null.");
+        }
+        this.transactionId = transactionId;
+        this.amount = amount;
+        this.type = TransactionType.fromString(type);
+        this.date = date;
+        this.note = note;
+        this.receiptPath = receiptPath;
+        this.transactionGroupId = transactionGroupId;
+        this.profileId = profileId;
+        // Inline assignCategory logic
+        if (category == null) {
+            throw new IllegalArgumentException("Category cannot be null.");
+        }
+        if (category.getProfileId() != profileId) {
+            throw new IllegalArgumentException("Category profile must match transaction profile.");
+        }
+        boolean validForType = (isIncome() && category.isIncomeCategory()) ||
+                               (isExpense() && category.isExpenseCategory());
+        if (!validForType) {
+            throw new IllegalArgumentException("Category type does not match transaction type.");
+        }
+        this.categoryId = category.getCategoryId();
+        this.transactionCategory = category;
     }
 
     public int getTransactionId() {
@@ -214,12 +246,12 @@ public class Transaction {
     }
 
     // Returns true if this transaction is income
-    public boolean isIncome() {
+    public final boolean isIncome() {
         return type == TransactionType.INCOME;
     }
 
     // Returns true if this transaction is an expense
-    public boolean isExpense() {
+    public final boolean isExpense() {
         return type == TransactionType.EXPENSE;
     }
 

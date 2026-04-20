@@ -1,23 +1,36 @@
-public class AccountOperations {
+public class AccountOperations extends DBOperations {
 	private Account account;
+	private Profile profile;
 
-	public boolean addProfileDB(Profile profile) {
-		// Reference to Account omitted from query
-		String query = "INSERT INTO Profile VALUES (%d, %s, %s, %f)";
-		String.format(query, profile.getID(), profile.getDisplayName(), profile.getDescription(), profile.getBankRoll());
+	// Required by DBOperations, but not used for AccountOperations
+	@Override
+	protected boolean create(Category category) {
+		throw new UnsupportedOperationException("Not supported for AccountOperations");
+	}
 
+	@Override
+	protected boolean delete(Category category) {
+		throw new UnsupportedOperationException("Not supported for AccountOperations");
+	}
+
+	// Account-specific create
+	protected boolean create(Account account) {
+		String query = "INSERT INTO Account VALUES (%d, %s, %d)";
+		String formatted = String.format(query, account.getAccountID(), account.getEmail(), account.getPasswordHash());
+		// TODO: Execute the query
 		return true;
 	}
 
-	public boolean deleteProfileDB(Profile profile) {
-		String query = "DELETE FROM Profile WHERE id = %d";
-		String.format(query, profile.getID());
-
+	// Account-specific delete
+	protected boolean delete(Account account) {
+		String query = "DELETE FROM Account WHERE accountID = %d";
+		String formatted = String.format(query, account.getAccountID());
+		// TODO: Execute the query
 		return true;
 	}
 
 	public boolean updateProfileDB(Profile profile) {
-		//								   replace fields with name of fields in DB
+		//replace fields with name of fields in DB
 		String query = "UPDATE Profile SET displayName=%s, description=%s, bankRoll=%f WHERE id = %d";
 		String.format(query, profile.getDisplayName(), profile.getDescription(), profile.getBankRoll(), profile.getID());
 
@@ -26,4 +39,6 @@ public class AccountOperations {
 
 	public Account getAccount() { return account; }
 	public void setAccount(Account a) { account = a; }
+	public Profile getProfile() { return profile; }
+	public void setProfile(Profile p) { profile = p; }
 }
