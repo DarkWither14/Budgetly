@@ -15,14 +15,16 @@ public class Category {
 
             String normalized = value.trim().toUpperCase();
             switch (normalized) {
-                case "INCOME":
+                case "INCOME" -> {
                     return INCOME;
-                case "EXPENSE":
+                }
+                case "EXPENSE" -> {
                     return EXPENSE;
-                case "BOTH":
+                }
+                case "BOTH" -> {
                     return BOTH;
-                default:
-                    throw new IllegalArgumentException("Category type must be 'income', 'expense', or 'both'.");
+                }
+                default -> throw new IllegalArgumentException("Category type must be 'income', 'expense', or 'both'.");
             }
         }
 
@@ -42,20 +44,51 @@ public class Category {
 
     // Constructor accepting type as a String
     public Category(int categoryId, String name, String description, String type, int profileId) {
-        setCategoryId(categoryId);
-        setName(name);
-        setDescription(description);
-        setType(type);
-        setProfileId(profileId);
+        if (categoryId <= 0) {
+            throw new IllegalArgumentException("Category ID must be greater than 0.");
+        }
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("Category name cannot be empty.");
+        }
+        if (profileId <= 0) {
+            throw new IllegalArgumentException("Profile ID must be greater than 0.");
+        }
+        this.categoryId = categoryId;
+        this.name = name.trim();
+        if (description == null) {
+            this.description = null;
+        } else {
+            String normalized = description.trim();
+            this.description = normalized.isEmpty() ? null : normalized;
+        }
+        this.type = CategoryType.fromString(type);
+        this.profileId = profileId;
     }
 
     // Constructor accepting type as a CategoryType enum
     public Category(int categoryId, String name, String description, CategoryType type, int profileId) {
-        setCategoryId(categoryId);
-        setName(name);
-        setDescription(description);
-        setType(type);
-        setProfileId(profileId);
+        if (categoryId <= 0) {
+            throw new IllegalArgumentException("Category ID must be greater than 0.");
+        }
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("Category name cannot be empty.");
+        }
+        if (type == null) {
+            throw new IllegalArgumentException("Category type cannot be null.");
+        }
+        if (profileId <= 0) {
+            throw new IllegalArgumentException("Profile ID must be greater than 0.");
+        }
+        this.categoryId = categoryId;
+        this.name = name.trim();
+        if (description == null) {
+            this.description = null;
+        } else {
+            String normalized = description.trim();
+            this.description = normalized.isEmpty() ? null : normalized;
+        }
+        this.type = type;
+        this.profileId = profileId;
     }
 
     public int getCategoryId() {

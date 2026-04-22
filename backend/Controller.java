@@ -8,17 +8,6 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
-/**
- * Controller coordinates high-level create/delete operations for Accounts,
- * TransactionGroups, Transactions, and Categories.
- *
- * <p>This class uses the provided operations classes as the persistence-facing
- * collaborators and also keeps simple in-memory maps so that objects can be
- * found again by ID while the program is running.</p>
- *
- *TO BE ADDED: DATABASE SUPPORT
- * </ul>
- */
 public class Controller {
 
     private AccountOperations accOperations;
@@ -26,29 +15,23 @@ public class Controller {
     private CategoryOperations categoryOperations;
     private VerifyData verifyData;
 
-    // ── Account / session state ───────────────────────────────────────────────
     private Account activeAccount;
 
-    // ── Profile state ─────────────────────────────────────────────────────────
     private final List<Profile> profiles;
-    private Profile              activeProfile;
+    private Profile activeProfile;
 
-    // ── ID-keyed maps (used by diagram-compliant methods and profile-scoped ops) ─
-    private final Map<Integer, Account>          accounts;
+    private final Map<Integer, Account> accounts;
     private final Map<Integer, TransactionGroup> transactionGroups;
-    private final Map<Integer, Transaction>      transactions;
-    private final Map<Integer, Category>         categories;
+    private final Map<Integer, Transaction> transactions;
+    private final Map<Integer, Category> categories;
 
-    // ── Auto-increment counters ───────────────────────────────────────────────
     private final AtomicInteger profileSeq     = new AtomicInteger(1);
     private final AtomicInteger transactionSeq = new AtomicInteger(1);
     private final AtomicInteger groupSeq       = new AtomicInteger(1);
 
     private int activeProfileId;
 
-    public Controller() {
-        this(1);
-    }
+    public Controller() { this(1); }
 
     public Controller(int activeProfileId) {
         this.accOperations      = new AccountOperations();
@@ -65,41 +48,22 @@ public class Controller {
         this.verifyData         = new VerifyData(this);
     }
 
-    public AccountOperations getAccOperations() {
-        return accOperations;
+    public int getActiveProfileId() { return activeProfileId; }
+
+    VerifyData getVerifyData() { return verifyData; }
+
+    public boolean hasActiveTransactionGroup() {
+        return transOperations.getTransactionGroup() != null;
     }
 
-    public TransactionOperations getTransOperations() {
-        return transOperations;
+    public boolean hasActiveCategory() {
+        return categoryOperations.getCategory() != null;
     }
-
-    public CategoryOperations getCategoryOperations() {
-        return categoryOperations;
-    }
-
-    public int getActiveProfileId() {
-        return activeProfileId;
-    }
-
-    public void setActiveProfileId(int activeProfileId) {
-        if (activeProfileId <= 0) {
-            throw new IllegalArgumentException("Active profile ID must be greater than 0.");
-        }
-        this.activeProfileId = activeProfileId;
-    }
-
-    public VerifyData getVerifyData() { return verifyData; }
 
     // =========================================================================
     //  ACCOUNT / SESSION OPERATIONS
     // =========================================================================
 
-    /**
-     * Registers a new account with the given email and password.
-     * The password is stored as a hash. Logs the new user in automatically.
-     *
-     * @return true if registration succeeded, false if the email is already taken
-     */
     public boolean registerAccount(String email, String password) {
         if (email == null || email.trim().isEmpty())
             throw new IllegalArgumentException("Email cannot be blank.");
@@ -110,22 +74,17 @@ public class Controller {
         Account account = new Account();
         account.setAccountID(id);
         account.setEmail(email.trim());
-        account.setPasswordHash(password.hashCode());
+        account.setPassword(password);  // changed
         accounts.put(id, account);
         accOperations.setAccount(account);
         activeAccount = account;
         return true;
     }
 
-    /**
-     * Logs in with the given email and password.
-     *
-     * @return true if credentials matched, false otherwise
-     */
     public boolean login(String email, String password) {
         for (Account acc : accounts.values()) {
             if (acc.getEmail().equalsIgnoreCase(email.trim())
-                    && acc.getPasswordHash() == password.hashCode()) {
+                    && acc.checkPassword(password)) {  // changed
                 activeAccount = acc;
                 accOperations.setAccount(acc);
                 return true;
@@ -135,8 +94,8 @@ public class Controller {
     }
 
     public void logout() {
-        activeAccount  = null;
-        activeProfile  = null;
+        activeAccount   = null;
+        activeProfile   = null;
         activeProfileId = 1;
         accOperations.setAccount(null);
     }
@@ -145,7 +104,9 @@ public class Controller {
 
     public Account getActiveAccount() { return activeAccount; }
 
-
+    // =========================================================================
+    //  PROFILE OPERATIONS
+    // =========================================================================
 
     public void createProfile(String name, String desc) {
         Profile p = new Profile();
@@ -157,21 +118,20 @@ public class Controller {
         if (activeAccount != null) {
             activeAccount.addProfileToList(p);
         }
-        accOperations.addProfileDB(p);
+        accOperations.setProfile(p);
+        accOperations.create(activeAccount);
         if (activeProfile == null) {
-            activeProfile = p;
+            activeProfile   = p;
             activeProfileId = p.getID();
         }
     }
 
-    public List<Profile> getProfiles() {
-        return new ArrayList<>(profiles);
-    }
+    public List<Profile> getProfiles() { return new ArrayList<>(profiles); }
 
     public boolean selectProfile(int id) {
         for (Profile p : profiles) {
             if (p.getID() == id) {
-                activeProfile = p;
+                activeProfile   = p;
                 activeProfileId = p.getID();
                 return true;
             }
@@ -193,24 +153,17 @@ public class Controller {
             activeAccount.removeProfileById(id);
         }
         if (activeProfile != null && activeProfile.getID() == id) {
-            activeProfile = profiles.isEmpty() ? null : profiles.get(0);
+            activeProfile   = profiles.isEmpty() ? null : profiles.get(0);
             activeProfileId = activeProfile != null ? activeProfile.getID() : 1;
         }
-        accOperations.deleteProfileDB(toDelete);
+        accOperations.updateProfileDB(toDelete);  // fixed — was incorrectly deleting the account
         return true;
     }
 
-    public Profile getActiveProfile() {
-        return activeProfile;
-    }
+    public Profile getActiveProfile() { return activeProfile; }
 
-    public boolean hasActiveProfile() {
-        return activeProfile != null;
-    }
+    public boolean hasActiveProfile() { return activeProfile != null; }
 
-    /**
-     * Updates a profile field. field: 1 = display name, 2 = description.
-     */
     public boolean updateProfile(int id, int field, String value) {
         for (Profile p : profiles) {
             if (p.getID() == id) {
@@ -224,7 +177,7 @@ public class Controller {
     }
 
     // =========================================================================
-    //  CATEGORY OPERATIONS (profile-scoped, used by Main via Controller)
+    //  CATEGORY OPERATIONS
     // =========================================================================
 
     public void addCategory(String name, String type, String desc) {
@@ -235,7 +188,7 @@ public class Controller {
                 type, activeProfileId);
         categories.put(id, c);
         categoryOperations.setCategory(c);
-        categoryOperations.createCategoryDB(id, name);
+        categoryOperations.create(c);
     }
 
     public List<Category> getCategoriesForActiveProfile() {
@@ -248,23 +201,18 @@ public class Controller {
         Category c = categories.get(id);
         if (c == null || c.getProfileId() != activeProfileId) return false;
         categories.remove(id);
-        categoryOperations.deleteCategoryDB(id);
+        categoryOperations.delete(c);
         return true;
     }
 
     // =========================================================================
-    //  TRANSACTION OPERATIONS (profile-scoped, used by Main via Controller)
+    //  TRANSACTION OPERATIONS
     // =========================================================================
 
-    /**
-     * Creates a Transaction inside the specified group (composition).
-     * A Transaction cannot exist without a parent TransactionGroup.
-     */
     public void addTransaction(int groupId, double amount, String type, int catId, LocalDate date, String note) {
         TransactionGroup group = transactionGroups.get(groupId);
-        if (group == null) {
+        if (group == null)
             throw new IllegalArgumentException("Group not found with ID " + groupId + ".");
-        }
         int id = transactionSeq.getAndIncrement();
         Transaction t = new Transaction(
                 id, amount, type, catId,
@@ -272,7 +220,8 @@ public class Controller {
                 null, groupId, activeProfileId);
         group.addTransacToList(t);
         transactions.put(id, t);
-        transOperations.createTransactionDB(t);
+        transOperations.setTransaction(t);
+        transOperations.create(t);
     }
 
     public List<Transaction> getTransactionsForActiveProfile() {
@@ -291,12 +240,12 @@ public class Controller {
             if (g != null) g.deleteTransacFromList(id);
         }
         transactions.remove(id);
-        transOperations.deleteTransactionDB(id);
+        transOperations.delete(t);
         return true;
     }
 
     // =========================================================================
-    //  TRANSACTION GROUP OPERATIONS (profile-scoped, used by Main via Controller)
+    //  TRANSACTION GROUP OPERATIONS
     // =========================================================================
 
     public void addGroup(String name, String desc) {
@@ -335,7 +284,7 @@ public class Controller {
     }
 
     // =========================================================================
-    //  REPORT OPERATIONS (used by Main via Controller)
+    //  REPORT OPERATIONS
     // =========================================================================
 
     public void generateReport(String type) {
@@ -360,202 +309,119 @@ public class Controller {
         ChartPrinter.printIncomeVsExpense(getTransactionsForActiveProfile());
     }
 
-    /**
-     * Supports the class diagram method:
-     * createAccount(accID:int, email:String, passHash:int): void
-     */
+    // =========================================================================
+    //  DIAGRAM-COMPLIANT METHODS
+    // =========================================================================
+
     public void createAccount(int accID, String email, int passHash) {
-        if (accounts.containsKey(accID)) {
+        if (accounts.containsKey(accID))
             throw new IllegalArgumentException("An account with ID " + accID + " already exists.");
-        }
-        if (email == null || email.trim().isEmpty()) {
+        if (email == null || email.trim().isEmpty())
             throw new IllegalArgumentException("Email cannot be blank.");
-        }
         Account account = new Account();
         account.setAccountID(accID);
         account.setEmail(email.trim());
-        account.setPasswordHash(passHash);
+        //account.setPasswordHash(passHash);
         accounts.put(accID, account);
         accOperations.setAccount(account);
     }
 
-    /**
-     * Supports the class diagram method:
-     * deleteAccount(accID:int): void
-     */
     public void deleteAccount(int accID) {
         Account removed = accounts.remove(accID);
-        if (removed == null) {
+        if (removed == null)
             throw new IllegalArgumentException("No account found with ID " + accID + ".");
-        }
-
-        if (accOperations.getAccount() == removed) {
+        if (accOperations.getAccount() == removed)
             accOperations.setAccount(null);
-        }
     }
 
-    /**
-     * Supports the class diagram method:
-     * createTransGroup(groupID:int, name:String, description:String, rcptPath:String)
-     */
     public void createTransGroup(int groupID, String name, String description, String rcptPath) {
-        if (transactionGroups.containsKey(groupID)) {
+        if (transactionGroups.containsKey(groupID))
             throw new IllegalArgumentException("A transaction group with ID " + groupID + " already exists.");
-        }
-
         TransactionGroup group = new TransactionGroup(groupID, name, description, rcptPath);
         transactionGroups.put(groupID, group);
         transOperations.setTransactionGroup(group);
         transOperations.createTransactionGroupDB(group);
     }
 
-    /**
-     * Supports the class diagram method:
-     * deleteTransGroup(groupID:int)
-     *
-     * Deleting a group also removes all transactions belonging to that group
-     * from this controller and calls the transaction delete operation for each.
-     */
     public void deleteTransGroup(int groupID) {
         TransactionGroup group = transactionGroups.remove(groupID);
-        if (group == null) {
+        if (group == null)
             throw new IllegalArgumentException("No transaction group found with ID " + groupID + ".");
-        }
-
         Iterator<Map.Entry<Integer, Transaction>> iterator = transactions.entrySet().iterator();
         while (iterator.hasNext()) {
             Map.Entry<Integer, Transaction> entry = iterator.next();
             Transaction transaction = entry.getValue();
             Integer transactionGroupId = transaction.getTransactionGroupId();
-
             if (transactionGroupId != null && transactionGroupId == groupID) {
-                transOperations.deleteTransactionDB(transaction.getTransactionId());
+                transOperations.delete(transaction);
                 iterator.remove();
             }
         }
-
         transOperations.deleteTransactionGroupDB(groupID);
-
-        if (transOperations.getTransactionGroup() == group) {
+        if (transOperations.getTransactionGroup() == group)
             transOperations.setTransactionGroup(null);
-        }
     }
 
-    /**
-     * Supports the class diagram method:
-     * createTransaction(transID:int, date:String, amount:double, type:boolean, transGroup:int)
-     *
-     * Assumption: type == true means income, false means expense.
-     * A default compatible category is created/used automatically because the
-     * uploaded Transaction constructor requires category information while the
-     * diagram method does not provide it.
-     */
     public void createTransaction(int transID, String date, double amount, boolean type, int transGroup) {
-        if (transactions.containsKey(transID)) {
+        if (transactions.containsKey(transID))
             throw new IllegalArgumentException("A transaction with ID " + transID + " already exists.");
-        }
-
         TransactionGroup group = transactionGroups.get(transGroup);
-        if (group == null) {
+        if (group == null)
             throw new IllegalArgumentException("No transaction group found with ID " + transGroup + ".");
-        }
-
         String transactionType = type ? "income" : "expense";
         Category category = findOrCreateDefaultCategory(type);
         LocalDate parsedDate = parseDate(date);
-
         Transaction transaction = new Transaction(
-                transID,
-                amount,
-                transactionType,
-                category.getCategoryId(),
-                parsedDate,
-                null,
-                group.getReceiptFilePath(),
-                group.getGroupId(),
-                activeProfileId
-        );
-
+                transID, amount, transactionType, category.getCategoryId(),
+                parsedDate, null, group.getReceiptFilePath(),
+                group.getGroupId(), activeProfileId);
         group.addTransacToList(transaction);
         transactions.put(transID, transaction);
-        transOperations.createTransactionDB(transaction);
+        transOperations.create(transaction);
     }
 
-    /**
-     * Supports the class diagram method:
-     * deleteTransaction(transID:int)
-     */
     public void deleteTransaction(int transID) {
         Transaction removed = transactions.remove(transID);
-        if (removed == null) {
+        if (removed == null)
             throw new IllegalArgumentException("No transaction found with ID " + transID + ".");
-        }
-
         Integer groupId = removed.getTransactionGroupId();
         if (groupId != null) {
             TransactionGroup group = transactionGroups.get(groupId);
-            if (group != null) {
-                group.deleteTransacFromList(transID);
-            }
+            if (group != null) group.deleteTransacFromList(transID);
         }
-
-        transOperations.deleteTransactionDB(transID);
+        transOperations.delete(removed);
     }
 
-    /**
-     * Supports the class diagram method:
-     * createCategory(categID:int, categName:String, description:String)
-     *
-     * Assumption: since the diagram snippet does not include a type, this
-     * method creates a category of type BOTH for the active profile.
-     */
     public void createCategory(int categID, String categName, String description) {
-        if (categories.containsKey(categID)) {
+        if (categories.containsKey(categID))
             throw new IllegalArgumentException("A category with ID " + categID + " already exists.");
-        }
-
         Category category = new Category(categID, categName, description, Category.CategoryType.BOTH, activeProfileId);
         categories.put(categID, category);
         categoryOperations.setCategory(category);
-        categoryOperations.createCategoryDB(categID, categName);
+        categoryOperations.create(category);
     }
 
-    /**
-     * Supports the class diagram method:
-     * deleteCategory(categID:int)
-     */
     public void deleteCategory(int categID) {
         Category removed = categories.remove(categID);
-        if (removed == null) {
+        if (removed == null)
             throw new IllegalArgumentException("No category found with ID " + categID + ".");
-        }
-
-        categoryOperations.deleteCategoryDB(categID);
-
-        if (categoryOperations.getCategory() == removed) {
+        categoryOperations.delete(removed);
+        if (categoryOperations.getCategory() == removed)
             categoryOperations.setCategory(null);
-        }
     }
 
-    /** Utility lookup if other classes need direct access. */
-    public Account getAccount(int accID) {
-        return accounts.get(accID);
-    }
+    // =========================================================================
+    //  UTILITY LOOKUPS
+    // =========================================================================
 
-    /** Utility lookup if other classes need direct access. */
-    public TransactionGroup getTransactionGroup(int groupID) {
-        return transactionGroups.get(groupID);
-    }
+    public Account getAccount(int accID) { return accounts.get(accID); }
+    public TransactionGroup getTransactionGroup(int groupID) { return transactionGroups.get(groupID); }
+    public Transaction getTransaction(int transID) { return transactions.get(transID); }
+    public Category getCategory(int categID) { return categories.get(categID); }
 
-    /** Utility lookup if other classes need direct access. */
-    public Transaction getTransaction(int transID) {
-        return transactions.get(transID);
-    }
-
-    /** Utility lookup if other classes need direct access. */
-    public Category getCategory(int categID) {
-        return categories.get(categID);
-    }
+    // =========================================================================
+    //  PRIVATE HELPERS
+    // =========================================================================
 
     private LocalDate parseDate(String date) {
         try {
@@ -565,46 +431,31 @@ public class Controller {
         }
     }
 
-    /**
-     * Creates or reuses a fallback category for transactions created through the
-     * diagram method that lacks category input.
-     */
     private Category findOrCreateDefaultCategory(boolean isIncome) {
         String desiredName = isIncome ? "Auto Income" : "Auto Expense";
         Category.CategoryType desiredType = isIncome
                 ? Category.CategoryType.INCOME
                 : Category.CategoryType.EXPENSE;
-
         for (Category category : categories.values()) {
-            boolean sameProfile = category.getProfileId() == activeProfileId;
-            boolean sameName = category.getName().equalsIgnoreCase(desiredName);
+            boolean sameProfile    = category.getProfileId() == activeProfileId;
+            boolean sameName       = category.getName().equalsIgnoreCase(desiredName);
             boolean compatibleType = isIncome ? category.isIncomeCategory() : category.isExpenseCategory();
-
-            if (sameProfile && sameName && compatibleType) {
-                return category;
-            }
+            if (sameProfile && sameName && compatibleType) return category;
         }
-
         int newCategoryId = nextAvailableCategoryId();
         Category category = new Category(
-                newCategoryId,
-                desiredName,
+                newCategoryId, desiredName,
                 "Automatically created by Controller for transactions created without an explicit category.",
-                desiredType,
-                activeProfileId
-        );
-
+                desiredType, activeProfileId);
         categories.put(newCategoryId, category);
         categoryOperations.setCategory(category);
-        categoryOperations.createCategoryDB(category.getCategoryId(), category.getName());
+        categoryOperations.create(category);
         return category;
     }
 
     private int nextAvailableCategoryId() {
         int nextId = 1;
-        while (categories.containsKey(nextId)) {
-            nextId++;
-        }
+        while (categories.containsKey(nextId)) nextId++;
         return nextId;
     }
 }

@@ -22,10 +22,10 @@ public class TransactionGroup {
     private String description;
 
     /** List of transactions belonging to this group. */
-    private List<Transaction> transactionList;
+    private final List<Transaction> transactionList;
 
     /** List of categories associated with this group (optional). */
-    private List<Category> categoryList;
+    private final List<Category> categoryList;
 
     /** Optional file path to a receipt or document associated with the group. */
     private String receiptFilePath;
@@ -39,10 +39,36 @@ public class TransactionGroup {
      * @param receiptFilePath optional file path; may be null but not blank
      */
     public TransactionGroup(int groupId, String name, String description, String receiptFilePath) {
-        setGroupId(groupId);
-        setName(name);
-        setDescription(description);
-        setReceiptFilePath(receiptFilePath);
+        // groupId validation
+        if (groupId <= 0) {
+            throw new IllegalArgumentException("Group ID must be greater than 0.");
+        }
+        this.groupId = groupId;
+
+        // name validation
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("Group name cannot be empty.");
+        }
+        this.name = name.trim();
+
+        // description normalization
+        if (description == null) {
+            this.description = null;
+        } else {
+            String normalized = description.trim();
+            this.description = normalized.isEmpty() ? null : normalized;
+        }
+
+        // receiptFilePath validation
+        if (receiptFilePath == null) {
+            this.receiptFilePath = null;
+        } else {
+            String normalized = receiptFilePath.trim();
+            if (normalized.isEmpty()) {
+                throw new IllegalArgumentException("Receipt file path cannot be blank.");
+            }
+            this.receiptFilePath = normalized;
+        }
 
         this.transactionList = new ArrayList<>();
         this.categoryList = new ArrayList<>();

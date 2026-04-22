@@ -5,7 +5,7 @@ public class Account {
     private int accountID;
     private String email;
     private int passwordHash;
-    private List<Profile> profileList;
+    private final List<Profile> profileList;
 
     public Account() {
         profileList = new ArrayList<>();
@@ -26,9 +26,22 @@ public class Account {
         this.email = email.trim();
     }
 
-    public int getPasswordHash() { return passwordHash; }
+    //private void setPasswordHash(int passwordHash) { this.passwordHash = passwordHash; }
 
-    public void setPasswordHash(int passwordHash) { this.passwordHash = passwordHash; }
+    public void setPassword(String password) {
+        if (password == null || password.isEmpty())
+            throw new IllegalArgumentException("Password cannot be blank.");
+        this.passwordHash = password.hashCode();
+    }
+
+    public boolean checkPassword(String password) {
+        if (password == null) return false;
+        return this.passwordHash == password.hashCode();
+    }
+
+    public int getPasswordHash() {
+        return passwordHash;
+    }
 
     public List<Profile> getProfileList() { return profileList; }
 
@@ -54,7 +67,6 @@ public class Account {
         return null;
     }
 
-    // Binary search by profile ID (list kept sorted by addProfileToList)
     private int index(String name) {
         int id = name.hashCode();
         int left = 0;
@@ -73,10 +85,6 @@ public class Account {
         return -1;
     }
 
-    /**
-     * Adds an existing Profile object into the sorted list.
-     * Used by Controller to register a profile it already created.
-     */
     public void addProfileToList(Profile p) {
         profileList.add(p);
         for (int i = 1; i < profileList.size(); i++) {
@@ -97,7 +105,6 @@ public class Account {
         return p;
     }
 
-    // changeProfile: 1 = name, 2 = description
     public void updateProfile(String name, int changeProfile, String change) {
         Profile p = getProfile(name);
         if (p == null) return;
@@ -107,12 +114,6 @@ public class Account {
         }
     }
 
-    /**
-     * Removes a profile from this account's list by its numeric ID.
-     * Used by Controller when deleting a profile.
-     *
-     * @return the removed Profile, or null if not found
-     */
     public Profile removeProfileById(int id) {
         for (int i = 0; i < profileList.size(); i++) {
             if (profileList.get(i).getID() == id) {
@@ -122,11 +123,6 @@ public class Account {
         return null;
     }
 
-    private void updateProfileName(Profile p, String change) {
-        p.setDisplayName(change);
-    }
-
-    private void updateProfileDescription(Profile p, String change) {
-        p.setDescription(change);
-    }
+    private void updateProfileName(Profile p, String change) { p.setDisplayName(change); }
+    private void updateProfileDescription(Profile p, String change) { p.setDescription(change); }
 }

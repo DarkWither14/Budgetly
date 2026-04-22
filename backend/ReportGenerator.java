@@ -30,7 +30,7 @@ public class ReportGenerator {
 
     public void generateReport(String reportType) {
         switch (reportType.trim().toLowerCase()) {
-            case "summary":
+            case "summary" -> {
                 for (Profile profile : profileList) {
                     double totalIncome = 0, totalExpenses = 0;
                     for (TransactionGroup group : profile.getTransactionGroups()) {
@@ -47,23 +47,23 @@ public class ReportGenerator {
                     System.out.println("  Total Income:  $" + totalIncome);
                     System.out.println("  Total Expenses:$" + totalExpenses);
                 }
-                break;
+            }
 
-            case "transactions":
+            case "transactions" -> {
                 for (Profile profile : profileList) {
                     System.out.println("Profile: " + profile.getDisplayName());
                     for (TransactionGroup group : profile.getTransactionGroups()) {
                         System.out.println("  Group: " + group.getName());
                         for (Transaction t : group.getTransactionList()) {
                             System.out.println("    [" + t.getDate() + "] "
-                                + t.getType() + " $" + t.getAmount()
-                                + " (Category ID: " + t.getCategoryId() + ")");
+                                    + t.getType() + " $" + t.getAmount()
+                                    + " (Category ID: " + t.getCategoryId() + ")");
                         }
                     }
                 }
-                break;
+            }
 
-            case "balance":
+            case "balance" -> {
                 for (Profile profile : profileList) {
                     double net = 0;
                     for (TransactionGroup group : profile.getTransactionGroups()) {
@@ -76,12 +76,11 @@ public class ReportGenerator {
                         }
                     }
                     System.out.println("Profile: " + profile.getDisplayName()
-                        + " | Net Balance: $" + net);
+                            + " | Net Balance: $" + net);
                 }
-                break;
+            }
 
-            default:
-                throw new IllegalArgumentException("Unknown report type: " + reportType);
+            default -> throw new IllegalArgumentException("Unknown report type: " + reportType);
         }
     }
 }
