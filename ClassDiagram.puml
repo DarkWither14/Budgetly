@@ -1,0 +1,285 @@
+@startuml
+class ReportGenerator{
+-profileList:List<Profile>
++ReportGenerator()
++addProfile(p:Profile):void 
++generateReport(reportType:String):void
+}
+
+class AccountOperations{
+-account:Account
++addProfileDB(profile:Profile):boolean
++deleteProfileDB(profile:Profile):boolean
++updateProfileDB(profile:Profile):boolean
++getAccount():Account
++setAccount(a:Account):void
+}
+
+class Account {
+-accountID:int
+-email:String
+-passwordHash:int
+-profileList:List<Profile>
++Account()
++getAccountID():int
++setAccountID(accountID:int):void
++getEmail():String
++setEmail(email:String):void
++getPasswordHash():int
++setPasswordHash(passwordHash:int):void
++getProfileList():List<Profile>
++getProfile(name:String):Profile
++addProfileToList(name:String):void
++addProfileToList(p:Profile):void
++deleteProfileList(name:String):Profile
++removeProfileById(id:int):Profile
+-index(name:String):int
+-makeProfile(name:String):Profile
++updateProfile(name:String,changeProfile:int,change:String):void
+-updateProfileName(p:Profile,change:String):void
+-updateProfileDescription(p:Profile,change:String):void
+}
+
+class Profile{
+-profileID:int
+-displayName:String
+-description:String
+-transactionGroups:List<TransactionGroup>
+-assocAccount:Account
+-bankRoll:double
++Profile()
+}
+
+class TransactionGroup{
+-groupID:int
+-name:String
+-description:String
+-transactionList:List<Transaction>
+-categoryList:List<Category>
+-receiptFilePath:String
++TransactionGroup(groupID:int,name:String,description:String,receiptFilePath:String)
++addTransacToList(trans:Transaction):void
++deleteTransacFromList(id:int):Transaction
++updateTransacInList(trans:Transaction):void
++toString():String
+}
+
+class UserInput{
+-{static}INSTANCE:UserInput
+-userInput:Scanner
+-UserInput()
++{static}getInstance():UserInput
++setInput(newInput:Scanner):void
++nextInt(description:String):int
++nextLong(description:String):long
++nextDouble(description:String):double
++nextFloat(description:String):float
++nextChar(description:String):char
++nextWord(description:String):String
++nextLine(description:String):String
++nextBoolean(description:String):boolean
+}
+
+class Category{
+-categoryID:int
+-name:String
+-description:String
+-type:CategoryType
+-profileID:int
++Category(id:int,name:String,desc:String,type:String,profileID:int)
++Category(id:int,name:String,desc:String,type:CategoryType,profileID:int)
++isIncomeCategory():boolean
++isExpenseCategory():boolean
++toString():String
+}
+
+enum CategoryType{
+INCOME
+EXPENSE
+BOTH
++fromString(str:String):CategoryType
++toString():String
+}
+
+class Transaction{
+-transactionId:int
+-amount:double
+-type:TransactionType
+-categoryId:int
+-date:LocalDate
+-transactionCategory:Category
+-receiptPath:String
+-transactionGroupID:Integer
+-profileID:int
+-note:String
++Transaction(transactionID:int,amount:double,type:String,categoryID:int,date:LocalDate,note:String,receiptPath:String,transactionGroupID:Integer,profileID:int)
++Transaction(transactionID:int,amount:double,type:String,category:Category,date:LocalDate,note:String,receiptPath:String,transactionGroupID:Integer,profileID:int)
++assignCategory(category:Category):void
++toString():String
+}
+
+class CategoryOperations{
+-category:Category
++createCategoryDB(id:int,name:String):boolean
++deleteCategoryDB(id:int):boolean
+}
+
+class TransactionOperations{
+-transGroup:TransactionGroup
++createTransactionDB(trans:Transaction):boolean
++deleteTransactionDB(id:int):boolean
++updateTransactionDB(trans:Transaction):boolean
++createTransactionGroupDB(transG:TransactionGroup):boolean
++deleteTransactionGroupDB(transGrpID:int):boolean
+}
+
+class Controller{
+-accOperations:AccountOperations
+-transOperations:TransactionOperations
+-categoryOperations:CategoryOperations
+-verifyData:VerifyData
+-activeAccount:Account
+-profiles:List<Profile>
+-activeProfile:Profile
+-activeProfileId:int
+-profileSeq:AtomicInteger
+-transactionSeq:AtomicInteger
+-groupSeq:AtomicInteger
+-accounts:Map<Integer,Account>
+-transactionGroups:Map<Integer,TransactionGroup>
+-transactions:Map<Integer,Transaction>
+-categories:Map<Integer,Category>
++Controller()
++Controller(activeProfileId:int)
++getVerifyData():VerifyData
++registerAccount(email:String,password:String):boolean
++login(email:String,password:String):boolean
++logout():void
++isLoggedIn():boolean
++getActiveAccount():Account
++createAccount(accID:int,email:String,passHash:int):void
++deleteAccount(accID:int):void
++createProfile(name:String,desc:String):void
++getProfiles():List<Profile>
++selectProfile(id:int):boolean
++deleteProfile(id:int):boolean
++hasActiveProfile():boolean
++getActiveProfile():Profile
++updateProfile(id:int,field:int,value:String):boolean
++createTransGroup(groupID:int,name:String,description:String,rcptPath:String):void
++deleteTransGroup(groupID:int):void
++addGroup(name:String,desc:String):void
++getGroupsForActiveProfile():List<TransactionGroup>
++getGroupTransactions(gid:int):List<Transaction>
++getGroupName(gid:int):String
++removeGroup(id:int):boolean
++createCategory(categID:int,categName:String,description:String):void
++deleteCategory(categID:int):void
++addCategory(name:String,type:String,desc:String):void
++getCategoriesForActiveProfile():List<Category>
++removeCategory(id:int):boolean
++addTransaction(groupId:int,amount:double,type:String,catId:int,date:LocalDate,note:String):void
++getTransactionsForActiveProfile():List<Transaction>
++removeTransaction(id:int):boolean
++generateReport(type:String):void
++printCategoryChart(chartType:String):void
++printMonthlyTrend():void
++printIncomeVsExpense():void
+}
+
+class VerifyData{
+-controllerObj:Controller
++VerifyData(controller:Controller)
++verifyData(type:int):boolean
+}
+
+enum TransactionType{
+INCOME
+EXPENSE
++{static}fromString(value:String):TransactionType
++toString():String
+}
+
+interface DatabaseConnection{
++getConnection():Connection
++close():void
+}
+
+class MySQLDatabaseConnection{
+-{static}instance:MySQLDatabaseConnection
+-{static}DB_URL:String
+-{static}DB_USER:String
+-{static}DB_PASS:String
+-connection:Connection
+-MySQLDatabaseConnection()
++{static}getInstance():MySQLDatabaseConnection
++getConnection():Connection
++close():void
+}
+
+class ChartPrinter{
+-{static}MAX_BAR_WIDTH:int
+-{static}BAR_CHAR:char
+-{static}HALF_CHAR:char
++{static}printCategoryChart(txList:List<Transaction>,catList:List<Category>,type:String):void
++{static}printMonthlyTrend(txList:List<Transaction>):void
++{static}printIncomeVsExpense(txList:List<Transaction>):void
+-{static}printBarChart(title:String,labels:List<String>,values:List<Double>,unit:String):void
+-{static}buildBar(value:double,max:double):String
+}
+
+class Main{
+-{static}input:UserInput
+-{static}controller:Controller
++{static}main(args:String[]):void
+-{static}printBanner():void
+-{static}printMainMenu():void
+-{static}loginMenu():boolean
+-{static}register():void
+-{static}loginAccount():void
+-{static}profileMenu():void
+-{static}listProfiles():void
+-{static}createProfile():void
+-{static}selectProfile():void
+-{static}updateProfile():void
+-{static}deleteProfile():void
+-{static}categoryMenu():void
+-{static}listCategories():void
+-{static}createCategory():void
+-{static}deleteCategory():void
+-{static}transactionMenu():void
+-{static}listTransactions():void
+-{static}createTransaction():void
+-{static}deleteTransaction():void
+-{static}groupMenu():void
+-{static}listGroups():void
+-{static}createGroup():void
+-{static}viewGroupTransactions():void
+-{static}deleteGroup():void
+-{static}reportMenu():void
+-{static}requireActiveProfile():boolean
+}
+
+' ── Relationships ────────────────────────────────────────────
+VerifyData "1"--"1" AccountOperations
+VerifyData "1"--"0..10" TransactionOperations
+VerifyData "1"--"0..20" CategoryOperations
+Controller "1"--"1" VerifyData
+ReportGenerator "1"--"1..3" Profile
+Account "1"--"1..3" Profile
+Profile "1"--"0..10" TransactionGroup
+TransactionGroup "1..10"--"1..20" Category
+Transaction "0..*"--"1" Category
+CategoryOperations "1"--"0..10" Category
+TransactionGroup "1" *-- "0..*" Transaction
+TransactionOperations "1"--"0..10" TransactionGroup
+AccountOperations "1"--"1" Account
+UserInput o-- UserInput
+Category *-- CategoryType
+Transaction *-- TransactionType
+MySQLDatabaseConnection ..|> DatabaseConnection
+
+' ── Main relationships ───────────────────────────────────────
+Main "1" --> "1" Controller
+Main "1" --> "1" UserInput
+@enduml
