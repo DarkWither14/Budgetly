@@ -50,7 +50,6 @@ public class Controller {
 
     public int getActiveProfileId() { return activeProfileId; }
 
-    VerifyData getVerifyData() { return verifyData; }
 
     public boolean hasActiveTransactionGroup() {
         return transOperations.getTransactionGroup() != null;
