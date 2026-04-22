@@ -39,6 +39,10 @@ public class Account {
         return this.passwordHash == password.hashCode();
     }
 
+    public int getPasswordHash() {
+        return passwordHash;
+    }
+
     public List<Profile> getProfileList() { return profileList; }
 
     public Profile getProfile(String name) {
