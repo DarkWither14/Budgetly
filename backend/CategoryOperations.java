@@ -1,7 +1,8 @@
 public class CategoryOperations {
 	private Category category;
+	private DatabaseConnection dbConnection;
 
-	public boolean createCategoryDB(int id, String name, DatabaseConnection dbConnection) {
+	public boolean createCategoryDB(int id, String name) {
 		String statement = "INSERT INTO Category VALUES (%d, %s, %s, %s)";
 		// Are we using the category variable or the parameters?
 		String.format(statement, id, name, category.getType().toString(), category.getDescription());
@@ -14,7 +15,7 @@ public class CategoryOperations {
 		}
 	}
 
-	public boolean deleteCategoryDB(int id, DatabaseConnection dbConnection) {
+	public boolean deleteCategoryDB(int id) {
 		//								           replace "id" with name of ID field in DB
 		String statement = "DELETE FROM Category where id = %d";
 		String.format(statement, id);
@@ -29,4 +30,7 @@ public class CategoryOperations {
 
 	public Category getCategory() { return category; }
 	public void setCategory(Category c) { category = c; }
+
+	public DatabaseConnection getDatabaseConnection() { return dbConnection; }
+	public void setDatabaseConnection(DatabaseConnection db) { dbConnection = db; }
 }

@@ -64,7 +64,11 @@ public class Controller {
         this.activeAccount      = null;
         this.activeProfileId    = activeProfileId;
         this.verifyData         = new VerifyData(this);
+        
         this.databaseConnection = MySQLDatabaseConnection.getInstance();
+        this.accOperations.setDatabaseConnection(this.databaseConnection);
+        this.transOperations.setDatabaseConnection(this.databaseConnection);
+        this.categoryOperations.setDatabaseConnection(this.databaseConnection);
     }
 
     public AccountOperations getAccOperations() {
@@ -159,7 +163,7 @@ public class Controller {
         if (activeAccount != null) {
             activeAccount.addProfileToList(p);
         }
-        accOperations.addProfileDB(p, databaseConnection);
+        accOperations.addProfileDB(p);
         if (activeProfile == null) {
             activeProfile = p;
             activeProfileId = p.getID();
@@ -198,7 +202,7 @@ public class Controller {
             activeProfile = profiles.isEmpty() ? null : profiles.get(0);
             activeProfileId = activeProfile != null ? activeProfile.getID() : 1;
         }
-        accOperations.deleteProfileDB(toDelete, databaseConnection);
+        accOperations.deleteProfileDB(toDelete);
         return true;
     }
 
@@ -218,7 +222,7 @@ public class Controller {
             if (p.getID() == id) {
                 if (field == 1) p.setDisplayName(value);
                 else if (field == 2) p.setDescription(value.isBlank() ? null : value);
-                accOperations.updateProfileDB(p, databaseConnection);
+                accOperations.updateProfileDB(p);
                 return true;
             }
         }
@@ -237,7 +241,7 @@ public class Controller {
                 type, activeProfileId);
         categories.put(id, c);
         categoryOperations.setCategory(c);
-        categoryOperations.createCategoryDB(id, name, databaseConnection);
+        categoryOperations.createCategoryDB(id, name);
     }
 
     public List<Category> getCategoriesForActiveProfile() {
@@ -250,7 +254,7 @@ public class Controller {
         Category c = categories.get(id);
         if (c == null || c.getProfileId() != activeProfileId) return false;
         categories.remove(id);
-        categoryOperations.deleteCategoryDB(id, databaseConnection);
+        categoryOperations.deleteCategoryDB(id);
         return true;
     }
 
@@ -274,7 +278,7 @@ public class Controller {
                 null, groupId, activeProfileId);
         group.addTransacToList(t);
         transactions.put(id, t);
-        transOperations.createTransactionDB(t, databaseConnection);
+        transOperations.createTransactionDB(t);
     }
 
     public List<Transaction> getTransactionsForActiveProfile() {
@@ -293,7 +297,7 @@ public class Controller {
             if (g != null) g.deleteTransacFromList(id);
         }
         transactions.remove(id);
-        transOperations.deleteTransactionDB(id, databaseConnection);
+        transOperations.deleteTransactionDB(id);
         return true;
     }
 
@@ -309,7 +313,7 @@ public class Controller {
         transactionGroups.put(id, g);
         activeProfile.getTransactionGroups().add(g);
         transOperations.setTransactionGroup(g);
-        transOperations.createTransactionGroupDB(g, databaseConnection);
+        transOperations.createTransactionGroupDB(g);
     }
 
     public List<TransactionGroup> getGroupsForActiveProfile() {
@@ -332,7 +336,7 @@ public class Controller {
         if (activeProfile != null) {
             activeProfile.getTransactionGroups().removeIf(gr -> gr.getGroupId() == id);
         }
-        transOperations.deleteTransactionGroupDB(id, databaseConnection);
+        transOperations.deleteTransactionGroupDB(id);
         return true;
     }
 
@@ -408,7 +412,7 @@ public class Controller {
         TransactionGroup group = new TransactionGroup(groupID, name, description, rcptPath);
         transactionGroups.put(groupID, group);
         transOperations.setTransactionGroup(group);
-        transOperations.createTransactionGroupDB(group, databaseConnection);
+        transOperations.createTransactionGroupDB(group);
     }
 
     /**
@@ -431,12 +435,12 @@ public class Controller {
             Integer transactionGroupId = transaction.getTransactionGroupId();
 
             if (transactionGroupId != null && transactionGroupId == groupID) {
-                transOperations.deleteTransactionDB(transaction.getTransactionId(), databaseConnection);
+                transOperations.deleteTransactionDB(transaction.getTransactionId());
                 iterator.remove();
             }
         }
 
-        transOperations.deleteTransactionGroupDB(groupID, databaseConnection);
+        transOperations.deleteTransactionGroupDB(groupID);
 
         if (transOperations.getTransactionGroup() == group) {
             transOperations.setTransactionGroup(null);
@@ -480,7 +484,7 @@ public class Controller {
 
         group.addTransacToList(transaction);
         transactions.put(transID, transaction);
-        transOperations.createTransactionDB(transaction, databaseConnection);
+        transOperations.createTransactionDB(transaction);
     }
 
     /**
@@ -501,7 +505,7 @@ public class Controller {
             }
         }
 
-        transOperations.deleteTransactionDB(transID, databaseConnection);
+        transOperations.deleteTransactionDB(transID);
     }
 
     /**
@@ -519,7 +523,7 @@ public class Controller {
         Category category = new Category(categID, categName, description, Category.CategoryType.BOTH, activeProfileId);
         categories.put(categID, category);
         categoryOperations.setCategory(category);
-        categoryOperations.createCategoryDB(categID, categName, databaseConnection);
+        categoryOperations.createCategoryDB(categID, categName);
     }
 
     /**
@@ -532,7 +536,7 @@ public class Controller {
             throw new IllegalArgumentException("No category found with ID " + categID + ".");
         }
 
-        categoryOperations.deleteCategoryDB(categID, databaseConnection);
+        categoryOperations.deleteCategoryDB(categID);
 
         if (categoryOperations.getCategory() == removed) {
             categoryOperations.setCategory(null);
@@ -598,7 +602,7 @@ public class Controller {
 
         categories.put(newCategoryId, category);
         categoryOperations.setCategory(category);
-        categoryOperations.createCategoryDB(category.getCategoryId(), category.getName(), databaseConnection);
+        categoryOperations.createCategoryDB(category.getCategoryId(), category.getName());
         return category;
     }
 
