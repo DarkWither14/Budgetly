@@ -13,7 +13,9 @@ public class Controller {
     private AccountOperations accOperations;
     private TransactionOperations transOperations;
     private CategoryOperations categoryOperations;
+    private DatabaseOperations databaseOperations;
     private VerifyData verifyData;
+    private DatabaseConnection databaseConnection;
 
     private Account activeAccount;
 
@@ -37,6 +39,7 @@ public class Controller {
         this.accOperations      = new AccountOperations();
         this.transOperations    = new TransactionOperations();
         this.categoryOperations = new CategoryOperations();
+        this.databaseOperations = new DatabaseOperations();
         this.profiles           = new ArrayList<>();
         this.activeProfile      = null;
         this.accounts           = new HashMap<>();
@@ -46,6 +49,15 @@ public class Controller {
         this.activeAccount      = null;
         this.activeProfileId    = activeProfileId;
         this.verifyData         = new VerifyData(this);
+        
+        this.databaseConnection = MySQLDatabaseConnection.getInstance();
+        this.accOperations.setDatabaseConnection(this.databaseConnection);
+        this.transOperations.setDatabaseConnection(this.databaseConnection);
+        this.categoryOperations.setDatabaseConnection(this.databaseConnection);
+        this.databaseOperations.setDatabaseConnection(this.databaseConnection);
+
+        this.databaseOperations.initializeDatabase();
+        this.databaseOperations.initializeTables();
     }
 
     public int getActiveProfileId() { return activeProfileId; }
@@ -76,6 +88,7 @@ public class Controller {
         account.setPassword(password);  // changed
         accounts.put(id, account);
         accOperations.setAccount(account);
+        accOperations.create(account);
         activeAccount = account;
         return true;
     }
@@ -118,7 +131,7 @@ public class Controller {
             activeAccount.addProfileToList(p);
         }
         accOperations.setProfile(p);
-        accOperations.create(activeAccount);
+        accOperations.addProfileDB(p);
         if (activeProfile == null) {
             activeProfile   = p;
             activeProfileId = p.getID();
@@ -155,7 +168,7 @@ public class Controller {
             activeProfile   = profiles.isEmpty() ? null : profiles.get(0);
             activeProfileId = activeProfile != null ? activeProfile.getID() : 1;
         }
-        accOperations.updateProfileDB(toDelete);  // fixed — was incorrectly deleting the account
+        accOperations.deleteProfileDB(toDelete);
         return true;
     }
 
@@ -323,12 +336,14 @@ public class Controller {
         //account.setPasswordHash(passHash);
         accounts.put(accID, account);
         accOperations.setAccount(account);
+        accOperations.create(account);
     }
 
     public void deleteAccount(int accID) {
         Account removed = accounts.remove(accID);
         if (removed == null)
             throw new IllegalArgumentException("No account found with ID " + accID + ".");
+        accOperations.delete(removed);
         if (accOperations.getAccount() == removed)
             accOperations.setAccount(null);
     }
