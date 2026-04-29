@@ -24,7 +24,6 @@ public class Controller {
     private AccountOperations accOperations;
     private TransactionOperations transOperations;
     private CategoryOperations categoryOperations;
-    private DatabaseOperations databaseOperations;
     private VerifyData verifyData;
     private DatabaseConnection databaseConnection;
 
@@ -56,7 +55,6 @@ public class Controller {
         this.accOperations      = new AccountOperations();
         this.transOperations    = new TransactionOperations();
         this.categoryOperations = new CategoryOperations();
-        this.databaseOperations = new DatabaseOperations();
         this.profiles           = new ArrayList<>();
         this.activeProfile      = null;
         this.accounts           = new HashMap<>();
@@ -71,10 +69,6 @@ public class Controller {
         this.accOperations.setDatabaseConnection(this.databaseConnection);
         this.transOperations.setDatabaseConnection(this.databaseConnection);
         this.categoryOperations.setDatabaseConnection(this.databaseConnection);
-        this.databaseOperations.setDatabaseConnection(this.databaseConnection);
-
-        this.databaseOperations.initializeDatabase();
-        this.databaseOperations.initializeTables();
     }
 
     public AccountOperations getAccOperations() {
