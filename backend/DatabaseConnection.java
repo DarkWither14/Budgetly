@@ -10,7 +10,7 @@ import java.sql.SQLException;
  *
  * Use DatabaseConnection connection = MySQLDatabaseConnection.getInstance();
  */
-public interface DatabaseConnection {
+public abstract class DatabaseConnection {
 
     /**
      * Returns an open database connection.
@@ -18,10 +18,10 @@ public interface DatabaseConnection {
      * @return an active {@link Connection}
      * @throws SQLException if the connection cannot be established
      */
-    Connection getConnection() throws SQLException;
+    public abstract Connection getConnection() throws SQLException;
 
     /**
      * Closes the underlying connection. Call on application shutdown.
      */
-    void close();
+    public abstract void close();
 }

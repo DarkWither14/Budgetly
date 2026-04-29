@@ -7,7 +7,7 @@
  */
 public class VerifyData {
 
-    private Controller controllerObj;
+    private final Controller controllerObj;
 
     public VerifyData(Controller controller) {
         this.controllerObj = controller;
@@ -21,10 +21,11 @@ public class VerifyData {
      */
     public boolean verifyData(int type) {
         return switch (type) {
-            case 1 -> controllerObj.getAccOperations().getAccount() != null;
-            case 2 -> controllerObj.getTransOperations().getTransactionGroup() != null;
-            case 3 -> controllerObj.getCategoryOperations().getCategory() != null;
+            case 1 -> controllerObj.isLoggedIn();
+            case 2 -> controllerObj.hasActiveTransactionGroup();
+            case 3 -> controllerObj.hasActiveCategory();
             default -> false;
         };
     }
 }
+

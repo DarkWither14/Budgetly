@@ -16,7 +16,7 @@ import java.sql.SQLException;
  *
  * Usage: DatabaseConnection db = MySQLDatabaseConnection.getInstance();
  */
-public class MySQLDatabaseConnection implements DatabaseConnection {
+public class MySQLDatabaseConnection extends DatabaseConnection {
 
     private static final String DB_URL =
             System.getenv().getOrDefault("BUDGETLY_DB_URL",  "jdbc:mysql://localhost:3306/budgetly");
@@ -56,7 +56,7 @@ public class MySQLDatabaseConnection implements DatabaseConnection {
      * @throws SQLException if the connection cannot be established
      */
     @Override
-    public Connection getConnection() throws SQLException {
+    public synchronized Connection getConnection() throws SQLException {
         if (connection == null || connection.isClosed()) {
             connection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
         }

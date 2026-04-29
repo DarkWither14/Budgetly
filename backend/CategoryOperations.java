@@ -1,25 +1,26 @@
-// This needs to be somewhere
-//import java.sql.*;
+public class CategoryOperations extends DBOperations<Category> {
+    private Category category;
 
-public class CategoryOperations {
-	private Category category;
+    @Override
+    protected boolean create(Category category) {
+        if (category == null || category.getCategoryId() <= 0)
+            throw new IllegalArgumentException("Invalid category or category ID.");
+        String query = "INSERT INTO Category VALUES (%d, %s, %s, %s)";
+        String formatted = String.format(query, category.getCategoryId(), category.getName(), category.getType().toString(), category.getDescription());
+        // TODO: Execute the query
+        return true;
+    }
 
-	public boolean createCategoryDB(int id, String name) {
-		String query = "INSERT INTO Category VALUES (%d, %s, %s, %s)";
-		// Are we using the category variable or the parameters?
-		String.format(query, id, name, category.getType().toString(), category.getDescription());
-		
-		return true;
-	}
+    @Override
+    protected boolean delete(Category category) {
+        if (category == null || category.getCategoryId() <= 0)
+            throw new IllegalArgumentException("Invalid category or category ID.");
+        String query = "DELETE FROM Category WHERE id = %d";
+        String formatted = String.format(query, category.getCategoryId());
+        // TODO: Execute the query
+        return true;
+    }
 
-	public boolean deleteCategoryDB(int id) {
-		//								           replace "id" with name of ID field in DB
-		String query = "DELETE FROM Category where id = %d";
-		String.format(query, id);
-		
-		return true;
-	}
-
-	public Category getCategory() { return category; }
-	public void setCategory(Category c) { category = c; }
+    public Category getCategory() { return category; }
+    public void setCategory(Category c) { category = c; }
 }
