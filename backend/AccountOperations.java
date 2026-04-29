@@ -1,8 +1,7 @@
 public class AccountOperations {
 	private Account account;
-	private DatabaseConnection dbConnection;
 
-	public boolean addProfileDB(Profile profile) {
+	public boolean addProfileDB(Profile profile, DatabaseConnection dbConnection) {
 		// Reference to Account omitted from insert
 		String statement = "INSERT INTO Profile VALUES (%d, '%s', '%s', %f)";
 		String.format(statement, profile.getID(), profile.getDisplayName(), profile.getDescription(), profile.getBankRoll());
@@ -15,7 +14,7 @@ public class AccountOperations {
 		}
 	}
 
-	public boolean deleteProfileDB(Profile profile) {
+	public boolean deleteProfileDB(Profile profile, DatabaseConnection dbConnection) {
 		String statement = "DELETE FROM Profile WHERE id = %d";
 		String.format(statement, profile.getID());
 
@@ -27,7 +26,7 @@ public class AccountOperations {
 		}
 	}
 
-	public boolean updateProfileDB(Profile profile) {
+	public boolean updateProfileDB(Profile profile, DatabaseConnection dbConnection) {
 		//								   replace fields with name of fields in DB
 		String statement = "UPDATE Profile SET displayName='%s', description='%s', bankRoll=%f WHERE id = %d";
 		String.format(statement, profile.getDisplayName(), profile.getDescription(), profile.getBankRoll(), profile.getID());
@@ -42,7 +41,4 @@ public class AccountOperations {
 
 	public Account getAccount() { return account; }
 	public void setAccount(Account a) { account = a; }
-
-	public DatabaseConnection getDatabaseConnection() { return dbConnection; }
-	public void setDatabaseConnection(DatabaseConnection db) { dbConnection = db; }
 }

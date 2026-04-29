@@ -1,8 +1,7 @@
 public class TransactionOperations {
 	private TransactionGroup transGroup;
-	private DatabaseConnection dbConnection;
 
-	public boolean createTransactionDB(Transaction trans) {
+	public boolean createTransactionDB(Transaction trans, DatabaseConnection dbConnection) {
 		/* If you look at the fields of Transaction, I excluded transactionCategory in the statement because 
 		   a Transaction's Category can already be accessed with categoryId
 		*/
@@ -17,7 +16,7 @@ public class TransactionOperations {
 		}
 	}
 
-	public boolean deleteTransactionDB(int id) {
+	public boolean deleteTransactionDB(int id, DatabaseConnection dbConnection) {
 		//											  replace "id" with name of ID field in DB
 		String statement = "DELETE FROM Transaction WHERE id = %d";
 		String.format(statement, id);
@@ -30,7 +29,7 @@ public class TransactionOperations {
 		}
 	}
 
-	public boolean updateTransactionDB(Transaction trans) {
+	public boolean updateTransactionDB(Transaction trans, DatabaseConnection dbConnection) {
 		//									   replace fields with name of fields in DB
 		String statement = "UPDATE Transaction SET amount=%f, type=%s, categoryId=%d, date=%tF, receiptPath=%s, transactionGroupId=%d, profileId=%d, note=%s WHERE id = %d";
 		String.format(statement, trans.getAmount(), trans.getType().toString(), trans.getCategoryId(), trans.getDate(), trans.getReceiptPath(), trans.getTransactionGroupId(), trans.getProfileId(), trans.getNote(), trans.getTransactionId());
@@ -43,7 +42,7 @@ public class TransactionOperations {
 		}
 	}
 
-	public boolean createTransactionGroupDB(TransactionGroup transG) {
+	public boolean createTransactionGroupDB(TransactionGroup transG, DatabaseConnection dbConnection) {
 		/* I don't know how the relationship between TransactionGroup and Category works 
 		   so I omitted it from the statement 
 		*/
@@ -58,7 +57,7 @@ public class TransactionOperations {
 		}
 	}
 
-	public boolean deleteTransactionGroupDB(int transGrpID) {
+	public boolean deleteTransactionGroupDB(int transGrpID, DatabaseConnection dbConnection) {
 		//												   replace "id" with name of ID field in DB
 		String statement = "DELETE FROM TransactionGroup WHERE id = %d";
 		String.format(statement, transGrpID);
@@ -73,7 +72,4 @@ public class TransactionOperations {
 
 	public TransactionGroup getTransactionGroup() { return transGroup; }
 	public void setTransactionGroup(TransactionGroup g) { transGroup = g; }
-
-	public DatabaseConnection getDatabaseConnection() { return dbConnection; }
-	public void setDatabaseConnection(DatabaseConnection db) { dbConnection = db; }
 }
