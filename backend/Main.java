@@ -36,7 +36,11 @@ public class Main {
                 case 3 -> transactionMenu();
                 case 4 -> groupMenu();
                 case 5 -> reportMenu();
-                case 6 -> running = false;
+                case 6 -> {
+                    controller.logout();
+                    if (!loginMenu()) running = false;
+                }
+                case 7 -> running = false;
                 default -> System.out.println("  Invalid option.");
             }
         }
@@ -110,7 +114,8 @@ public class Main {
         System.out.println("  3. Transactions");
         System.out.println("  4. Transaction Groups");
         System.out.println("  5. Reports");
-        System.out.println("  6. Exit");
+        System.out.println("  6. Logout");
+        System.out.println("  7. Exit");
     }
 
     // =========================================================================
