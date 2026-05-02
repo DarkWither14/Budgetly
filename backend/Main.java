@@ -2,21 +2,10 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 
-/**
- * Terminal entry point for Budgetly.
- *
- * Main only communicates with the Controller. All business logic, state
- * management, and service/model interactions are handled by the Controller
- * and the operations classes it delegates to.
- */
 public class Main {
 
     private static final UserInput  input      = UserInput.getInstance();
     private static final Controller controller = new Controller();
-
-    // =========================================================================
-    //  ENTRY POINT
-    // =========================================================================
 
     public static void main(String[] args) {
         printBanner();
@@ -52,7 +41,6 @@ public class Main {
     //  LOGIN / REGISTER
     // =========================================================================
 
-    /** Returns true when the user is successfully logged in, false if they chose to exit. */
     private static boolean loginMenu() {
         while (true) {
             System.out.println("\n── Account ──");
@@ -71,14 +59,22 @@ public class Main {
     }
 
     private static void register() {
-        String email    = input.nextLine("Email: ");
-        String password = input.nextLine("Password: ");
+    String email = input.nextLine("Email: ");
+    if (!email.trim().matches("^[\\w._%+\\-]+@[\\w.\\-]+\\.(com|net|org|edu|gov|mil|io|co|us|ca|uk|au)$")) {
+        System.out.println("  Error: Email must be a valid email address (e.g. name@example.com).");
+        return;
+    }
+    String password = input.nextLine("Password (min 6 chars, must include a number and special character): ");
+    try {
         if (controller.registerAccount(email, password)) {
             System.out.println("  Account created. You are now logged in as " + email + ".");
         } else {
             System.out.println("  That email is already registered. Please log in.");
         }
+    } catch (IllegalArgumentException e) {
+        System.out.println("  Error: " + e.getMessage());
     }
+}
 
     private static void loginAccount() {
         String email    = input.nextLine("Email: ");
@@ -89,7 +85,6 @@ public class Main {
             System.out.println("  Invalid email or password.");
         }
     }
-
 
     // =========================================================================
     //  MAIN MENU
@@ -475,7 +470,6 @@ public class Main {
     //  HELPERS
     // =========================================================================
 
-    /** Returns true (and prints a message) if no profile is active. */
     private static boolean requireActiveProfile() {
         if (!controller.hasActiveProfile()) {
             System.out.println("  No active profile. Go to Profiles → Create/Select first.");

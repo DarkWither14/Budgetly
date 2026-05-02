@@ -23,14 +23,21 @@ public class Account {
     public void setEmail(String email) {
         if (email == null || email.trim().isEmpty())
             throw new IllegalArgumentException("Email cannot be blank.");
-        this.email = email.trim();
+        String trimmed = email.trim();
+        if (!trimmed.matches("^[\\w._%+\\-]+@[\\w.\\-]+\\.(com|net|org|edu|gov|mil|io|co|us|ca|uk|au)$"))
+            throw new IllegalArgumentException("Email must be a valid email address (e.g. name@example.com).");
+        this.email = trimmed;
     }
-
-    //private void setPasswordHash(int passwordHash) { this.passwordHash = passwordHash; }
 
     public void setPassword(String password) {
         if (password == null || password.isEmpty())
             throw new IllegalArgumentException("Password cannot be blank.");
+        if (password.length() < 6)
+            throw new IllegalArgumentException("Password must be at least 6 characters.");
+        if (!password.matches(".*[0-9].*"))
+            throw new IllegalArgumentException("Password must contain at least one number.");
+        if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>\\/?].*"))
+            throw new IllegalArgumentException("Password must contain at least one special character.");
         this.passwordHash = password.hashCode();
     }
 

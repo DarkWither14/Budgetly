@@ -76,22 +76,22 @@ public class Controller {
     // =========================================================================
 
     public boolean registerAccount(String email, String password) {
-        if (email == null || email.trim().isEmpty())
-            throw new IllegalArgumentException("Email cannot be blank.");
-        for (Account acc : accounts.values()) {
-            if (acc.getEmail().equalsIgnoreCase(email.trim())) return false;
-        }
-        int id = accounts.size() + 1;
-        Account account = new Account();
-        account.setAccountID(id);
-        account.setEmail(email.trim());
-        account.setPassword(password);  // changed
-        accounts.put(id, account);
-        accOperations.setAccount(account);
-        accOperations.create(account);
-        activeAccount = account;
-        return true;
+    if (email == null || email.trim().isEmpty())
+        throw new IllegalArgumentException("Email cannot be blank.");
+    for (Account acc : accounts.values()) {
+        if (acc.getEmail().equalsIgnoreCase(email.trim())) return false;
     }
+    int id = accounts.size() + 1;
+    Account account = new Account();
+    account.setAccountID(id);
+    account.setEmail(email.trim());
+    account.setPassword(password);
+    accounts.put(id, account);
+    accOperations.setAccount(account);
+    accOperations.create(account);
+    activeAccount = account;
+    return true;
+}
 
     public boolean login(String email, String password) {
         for (Account acc : accounts.values()) {
