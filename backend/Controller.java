@@ -30,6 +30,7 @@ public class Controller {
     private final AtomicInteger profileSeq     = new AtomicInteger(1);
     private final AtomicInteger transactionSeq = new AtomicInteger(1);
     private final AtomicInteger groupSeq       = new AtomicInteger(1);
+    private final AtomicInteger accountSeq     = new AtomicInteger(1);
 
     private int activeProfileId;
 
@@ -49,19 +50,56 @@ public class Controller {
         this.activeAccount      = null;
         this.activeProfileId    = activeProfileId;
         this.verifyData         = new VerifyData(this);
-        
+
         this.databaseConnection = MySQLDatabaseConnection.getInstance();
         this.accOperations.setDatabaseConnection(this.databaseConnection);
         this.transOperations.setDatabaseConnection(this.databaseConnection);
         this.categoryOperations.setDatabaseConnection(this.databaseConnection);
         this.databaseOperations.setDatabaseConnection(this.databaseConnection);
-
         this.databaseOperations.initializeDatabase();
         this.databaseOperations.initializeTables();
+
+        // Load max IDs from database so sequences don't restart at 1
+        loadSequencesFromDB();
+    }
+
+    // =========================================================================
+    //  LOAD SEQUENCES FROM DB
+    // =========================================================================
+
+    private void loadSequencesFromDB() {
+        try {
+            var rs = databaseConnection.getConnection()
+                .createStatement()
+                .executeQuery("SELECT MAX(accountID) FROM Account");
+            if (rs.next() && rs.getObject(1) != null)
+                accountSeq.set(rs.getInt(1) + 1);
+
+            rs = databaseConnection.getConnection()
+                .createStatement()
+                .executeQuery("SELECT MAX(id) FROM Profile");
+            if (rs.next() && rs.getObject(1) != null)
+                profileSeq.set(rs.getInt(1) + 1);
+
+            rs = databaseConnection.getConnection()
+                .createStatement()
+                .executeQuery("SELECT MAX(id) FROM Transaction");
+            if (rs.next() && rs.getObject(1) != null)
+                transactionSeq.set(rs.getInt(1) + 1);
+
+            rs = databaseConnection.getConnection()
+                .createStatement()
+                .executeQuery("SELECT MAX(id) FROM TransactionGroup");
+            if (rs.next() && rs.getObject(1) != null)
+                groupSeq.set(rs.getInt(1) + 1);
+
+            System.out.println("Sequences loaded from database successfully.");
+        } catch (Exception e) {
+            System.err.println("Error loading sequences from DB: " + e.getMessage());
+        }
     }
 
     public int getActiveProfileId() { return activeProfileId; }
-
 
     public boolean hasActiveTransactionGroup() {
         return transOperations.getTransactionGroup() != null;
@@ -76,27 +114,27 @@ public class Controller {
     // =========================================================================
 
     public boolean registerAccount(String email, String password) {
-    if (email == null || email.trim().isEmpty())
-        throw new IllegalArgumentException("Email cannot be blank.");
-    for (Account acc : accounts.values()) {
-        if (acc.getEmail().equalsIgnoreCase(email.trim())) return false;
+        if (email == null || email.trim().isEmpty())
+            throw new IllegalArgumentException("Email cannot be blank.");
+        for (Account acc : accounts.values()) {
+            if (acc.getEmail().equalsIgnoreCase(email.trim())) return false;
+        }
+        int id = accountSeq.getAndIncrement();
+        Account account = new Account();
+        account.setAccountID(id);
+        account.setEmail(email.trim());
+        account.setPassword(password);
+        accounts.put(id, account);
+        accOperations.setAccount(account);
+        accOperations.create(account);
+        activeAccount = account;
+        return true;
     }
-    int id = accounts.size() + 1;
-    Account account = new Account();
-    account.setAccountID(id);
-    account.setEmail(email.trim());
-    account.setPassword(password);
-    accounts.put(id, account);
-    accOperations.setAccount(account);
-    accOperations.create(account);
-    activeAccount = account;
-    return true;
-}
 
     public boolean login(String email, String password) {
         for (Account acc : accounts.values()) {
             if (acc.getEmail().equalsIgnoreCase(email.trim())
-                    && acc.checkPassword(password)) {  // changed
+                    && acc.checkPassword(password)) {
                 activeAccount = acc;
                 accOperations.setAccount(acc);
                 return true;
@@ -333,7 +371,6 @@ public class Controller {
         Account account = new Account();
         account.setAccountID(accID);
         account.setEmail(email.trim());
-        //account.setPasswordHash(passHash);
         accounts.put(accID, account);
         accOperations.setAccount(account);
         accOperations.create(account);
