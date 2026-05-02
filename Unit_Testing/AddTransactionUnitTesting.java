@@ -1,15 +1,19 @@
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
+package test;
 
-import java.time.LocalDate;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
 
+import static org.junit.Assert.*;
+/**
+ * Tested by Michael Wagner
+ */
 public class AddTransactionUnitTesting {
 
     private Controller controller;
 
-    @BeforeEach
-    void setup() {
+    @Before
+    public void setup() {
         controller = new Controller(1);
     }
 
@@ -17,13 +21,18 @@ public class AddTransactionUnitTesting {
     // 1. GROUP NOT FOUND
     // ------------------------------------------------------------
     @Test
-    void testCreateTransaction_GroupNotFound() {
+    public void testCreateTransaction_GroupNotFound() {
         int fakeGroupId = 999;
 
         Exception ex = assertThrows(IllegalArgumentException.class, () ->
             controller.createTransaction(1, "2025-01-01", 10.0, true, fakeGroupId)
         );
 
+        if(ex.getMessage().contains("No transaction group found")) {
+        	System.out.println("A transaction group was not found. Test passed!");
+        }else {
+        	System.out.println("A Transaction group was found. Test failed!");
+        }
         assertTrue(ex.getMessage().contains("No transaction group found"));
     }
 
@@ -31,18 +40,19 @@ public class AddTransactionUnitTesting {
     // 2. DUPLICATE TRANSACTION ID
     // ------------------------------------------------------------
     @Test
-    void testCreateTransaction_DuplicateTransactionId() {
-        // First create a valid group
+    public void testCreateTransaction_DuplicateTransactionId() {
         controller.createTransGroup(10, "JUnit Group", "desc", null);
 
-        // First transaction succeeds
         controller.createTransaction(1, "2025-01-01", 10.0, true, 10);
 
-        // Second transaction with same ID should fail
         Exception ex = assertThrows(IllegalArgumentException.class, () ->
             controller.createTransaction(1, "2025-01-01", 20.0, false, 10)
         );
-
+        if(ex.getMessage().contains("already exists")) {
+        	System.out.println("Transaction already exists. Test passed!");
+        }else {
+        	System.out.println("Transaction does not exists. Test failed!");
+        }
         assertTrue(ex.getMessage().contains("already exists"));
     }
 
@@ -50,7 +60,7 @@ public class AddTransactionUnitTesting {
     // 3. SUCCESSFUL TRANSACTION
     // ------------------------------------------------------------
     @Test
-    void testCreateTransaction_Success() {
+    public void testCreateTransaction_Success() {
         controller.createTransGroup(10, "JUnit Group", "desc", null);
 
         controller.createTransaction(1, "2025-01-01", 50.0, false, 10);
@@ -58,8 +68,14 @@ public class AddTransactionUnitTesting {
         var t = controller.getTransaction(1);
 
         assertNotNull(t);
-        assertEquals(50.0, t.getAmount());
+        assertEquals(50.0, t.getAmount(), 0.0001);
         assertEquals("expense", t.getType());
-        assertEquals(10, t.getTransactionGroupId());
+        assertEquals(Integer.valueOf(10), t.getTransactionGroupId());
+        
     }
+    @After
+    public void teardown() {
+        controller = null;
+    }
+
 }
