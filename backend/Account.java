@@ -41,6 +41,10 @@ public class Account {
         this.passwordHash = password.hashCode();
     }
 
+    public void setPasswordHashDirectly(int hash) {
+        this.passwordHash = hash;
+    }
+
     public boolean checkPassword(String password) {
         if (password == null) return false;
         return this.passwordHash == password.hashCode();

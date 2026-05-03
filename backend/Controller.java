@@ -59,12 +59,16 @@ public class Controller {
         this.databaseOperations.initializeDatabase();
         this.databaseOperations.initializeTables();
 
-        // Load max IDs from database so sequences don't restart at 1
         loadSequencesFromDB();
+        loadAccountsFromDB();
+        loadProfilesFromDB();
+        loadCategoriesFromDB();
+        loadTransactionGroupsFromDB();
+        loadTransactionsFromDB();
     }
 
     // =========================================================================
-    //  LOAD SEQUENCES FROM DB
+    //  LOAD FROM DB ON STARTUP
     // =========================================================================
 
     private void loadSequencesFromDB() {
@@ -96,6 +100,115 @@ public class Controller {
             System.out.println("Sequences loaded from database successfully.");
         } catch (Exception e) {
             System.err.println("Error loading sequences from DB: " + e.getMessage());
+        }
+    }
+
+    private void loadAccountsFromDB() {
+        try {
+            var rs = databaseConnection.getConnection()
+                .createStatement()
+                .executeQuery("SELECT * FROM Account");
+            while (rs.next()) {
+                int id       = rs.getInt("accountID");
+                String email = rs.getString("email");
+                int passHash = rs.getInt("passwordHash");
+                Account account = new Account();
+                account.setAccountID(id);
+                account.setEmail(email);
+                account.setPasswordHashDirectly(passHash);
+                accounts.put(id, account);
+            }
+            System.out.println("Accounts loaded from database successfully.");
+        } catch (Exception e) {
+            System.err.println("Error loading accounts from database: " + e.getMessage());
+        }
+    }
+
+    private void loadProfilesFromDB() {
+        try {
+            var rs = databaseConnection.getConnection()
+                .createStatement()
+                .executeQuery("SELECT * FROM Profile");
+            while (rs.next()) {
+                int id          = rs.getInt("id");
+                String name     = rs.getString("displayName");
+                String desc     = rs.getString("description");
+                double bankRoll = rs.getDouble("bankRoll");
+                Profile p = new Profile();
+                p.setID(id);
+                p.setDisplayName(name);
+                p.setDescription(desc);
+                p.setBankRoll(bankRoll);
+                profiles.add(p);
+            }
+            System.out.println("Profiles loaded from database successfully.");
+        } catch (Exception e) {
+            System.err.println("Error loading profiles from database: " + e.getMessage());
+        }
+    }
+
+    private void loadCategoriesFromDB() {
+        try {
+            var rs = databaseConnection.getConnection()
+                .createStatement()
+                .executeQuery("SELECT * FROM Category");
+            while (rs.next()) {
+                int id        = rs.getInt("id");
+                String name   = rs.getString("name");
+                String type   = rs.getString("type");
+                String desc   = rs.getString("description");
+                Category c = new Category(id, name, desc, type, activeProfileId);
+                categories.put(id, c);
+            }
+            System.out.println("Categories loaded from database successfully.");
+        } catch (Exception e) {
+            System.err.println("Error loading categories from database: " + e.getMessage());
+        }
+    }
+
+    private void loadTransactionGroupsFromDB() {
+        try {
+            var rs = databaseConnection.getConnection()
+                .createStatement()
+                .executeQuery("SELECT * FROM TransactionGroup");
+            while (rs.next()) {
+                int id        = rs.getInt("id");
+                String name   = rs.getString("name");
+                String desc   = rs.getString("description");
+                String rcpt   = rs.getString("receiptPath");
+                TransactionGroup g = new TransactionGroup(id, name, desc, rcpt);
+                transactionGroups.put(id, g);
+            }
+            System.out.println("Transaction groups loaded from database successfully.");
+        } catch (Exception e) {
+            System.err.println("Error loading transaction groups from database: " + e.getMessage());
+        }
+    }
+
+    private void loadTransactionsFromDB() {
+        try {
+            var rs = databaseConnection.getConnection()
+                .createStatement()
+                .executeQuery("SELECT * FROM Transaction");
+            while (rs.next()) {
+                int id          = rs.getInt("id");
+                double amount   = rs.getDouble("amount");
+                String type     = rs.getString("type");
+                int catId       = rs.getInt("categoryId");
+                LocalDate date  = rs.getDate("date").toLocalDate();
+                String note     = rs.getString("note");
+                String rcpt     = rs.getString("receiptPath");
+                int groupId     = rs.getInt("transactionGroupId");
+                int profileId   = rs.getInt("profileId");
+                Transaction t = new Transaction(
+                        id, amount, type, catId, date, note, rcpt, groupId, profileId);
+                transactions.put(id, t);
+                TransactionGroup g = transactionGroups.get(groupId);
+                if (g != null) g.addTransacToList(t);
+            }
+            System.out.println("Transactions loaded from database successfully.");
+        } catch (Exception e) {
+            System.err.println("Error loading transactions from database: " + e.getMessage());
         }
     }
 
