@@ -21,6 +21,9 @@ public class TransactionGroup {
     /** Optional description providing additional details about the group. */
     private String description;
 
+    /** Profile ID this group belongs to. */
+    private int profileId;
+
     /** List of transactions belonging to this group. */
     private final List<Transaction> transactionList;
 
@@ -39,19 +42,16 @@ public class TransactionGroup {
      * @param receiptFilePath optional file path; may be null but not blank
      */
     public TransactionGroup(int groupId, String name, String description, String receiptFilePath) {
-        // groupId validation
         if (groupId <= 0) {
             throw new IllegalArgumentException("Group ID must be greater than 0.");
         }
         this.groupId = groupId;
 
-        // name validation
         if (name == null || name.trim().isEmpty()) {
             throw new IllegalArgumentException("Group name cannot be empty.");
         }
         this.name = name.trim();
 
-        // description normalization
         if (description == null) {
             this.description = null;
         } else {
@@ -59,7 +59,6 @@ public class TransactionGroup {
             this.description = normalized.isEmpty() ? null : normalized;
         }
 
-        // receiptFilePath validation
         if (receiptFilePath == null) {
             this.receiptFilePath = null;
         } else {
@@ -125,10 +124,15 @@ public class TransactionGroup {
             this.description = null;
             return;
         }
-
         String normalized = description.trim();
         this.description = normalized.isEmpty() ? null : normalized;
     }
+
+    /** @return the profile ID this group belongs to */
+    public int getProfileId() { return profileId; }
+
+    /** @param profileId the profile ID to set */
+    public void setProfileId(int profileId) { this.profileId = profileId; }
 
     /** @return the optional receipt file path */
     public String getReceiptFilePath() {
@@ -146,12 +150,10 @@ public class TransactionGroup {
             this.receiptFilePath = null;
             return;
         }
-
         String normalized = receiptFilePath.trim();
         if (normalized.isEmpty()) {
             throw new IllegalArgumentException("Receipt file path cannot be blank.");
         }
-
         this.receiptFilePath = normalized;
     }
 
@@ -176,7 +178,6 @@ public class TransactionGroup {
         if (trans == null) {
             throw new IllegalArgumentException("Transaction cannot be null.");
         }
-
         trans.setTransactionGroupId(groupId);
         transactionList.add(trans);
     }
@@ -189,7 +190,6 @@ public class TransactionGroup {
      */
     public Transaction deleteTransacFromList(int id) {
         Iterator<Transaction> iterator = transactionList.iterator();
-
         while (iterator.hasNext()) {
             Transaction t = iterator.next();
             if (t.getTransactionId() == id) {
@@ -197,7 +197,6 @@ public class TransactionGroup {
                 return t;
             }
         }
-
         return null;
     }
 
@@ -212,7 +211,6 @@ public class TransactionGroup {
         if (trans == null) {
             throw new IllegalArgumentException("Transaction cannot be null.");
         }
-
         for (int i = 0; i < transactionList.size(); i++) {
             if (transactionList.get(i).getTransactionId() == trans.getTransactionId()) {
                 transactionList.set(i, trans);

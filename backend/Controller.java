@@ -61,10 +61,6 @@ public class Controller {
 
         loadSequencesFromDB();
         loadAccountsFromDB();
-        loadProfilesFromDB();
-        loadCategoriesFromDB();
-        loadTransactionGroupsFromDB();
-        loadTransactionsFromDB();
     }
 
     // =========================================================================
@@ -124,11 +120,11 @@ public class Controller {
         }
     }
 
-    private void loadProfilesFromDB() {
+    private void loadProfilesFromDB(int accountID) {
         try {
             var rs = databaseConnection.getConnection()
                 .createStatement()
-                .executeQuery("SELECT * FROM Profile");
+                .executeQuery("SELECT * FROM Profile WHERE accountID = " + accountID);
             while (rs.next()) {
                 int id          = rs.getInt("id");
                 String name     = rs.getString("displayName");
@@ -147,17 +143,18 @@ public class Controller {
         }
     }
 
-    private void loadCategoriesFromDB() {
+    private void loadCategoriesFromDB(int accountID) {
         try {
             var rs = databaseConnection.getConnection()
                 .createStatement()
-                .executeQuery("SELECT * FROM Category");
+                .executeQuery("SELECT * FROM Category WHERE profileID IN (SELECT id FROM Profile WHERE accountID = " + accountID + ")");
             while (rs.next()) {
                 int id        = rs.getInt("id");
                 String name   = rs.getString("name");
                 String type   = rs.getString("type");
                 String desc   = rs.getString("description");
-                Category c = new Category(id, name, desc, type, activeProfileId);
+                int profileId = rs.getInt("profileID");
+                Category c = new Category(id, name, desc, type, profileId);
                 categories.put(id, c);
             }
             System.out.println("Categories loaded from database successfully.");
@@ -166,11 +163,11 @@ public class Controller {
         }
     }
 
-    private void loadTransactionGroupsFromDB() {
+    private void loadTransactionGroupsFromDB(int accountID) {
         try {
             var rs = databaseConnection.getConnection()
                 .createStatement()
-                .executeQuery("SELECT * FROM TransactionGroup");
+                .executeQuery("SELECT * FROM TransactionGroup WHERE profileID IN (SELECT id FROM Profile WHERE accountID = " + accountID + ")");
             while (rs.next()) {
                 int id        = rs.getInt("id");
                 String name   = rs.getString("name");
@@ -185,11 +182,11 @@ public class Controller {
         }
     }
 
-    private void loadTransactionsFromDB() {
+    private void loadTransactionsFromDB(int accountID) {
         try {
             var rs = databaseConnection.getConnection()
                 .createStatement()
-                .executeQuery("SELECT * FROM Transaction");
+                .executeQuery("SELECT * FROM Transaction WHERE profileId IN (SELECT id FROM Profile WHERE accountID = " + accountID + ")");
             while (rs.next()) {
                 int id          = rs.getInt("id");
                 double amount   = rs.getDouble("amount");
@@ -250,6 +247,20 @@ public class Controller {
                     && acc.checkPassword(password)) {
                 activeAccount = acc;
                 accOperations.setAccount(acc);
+                // Load this account's data from DB
+                profiles.clear();
+                categories.clear();
+                transactionGroups.clear();
+                transactions.clear();
+                loadProfilesFromDB(acc.getAccountID());
+                loadCategoriesFromDB(acc.getAccountID());
+                loadTransactionGroupsFromDB(acc.getAccountID());
+                loadTransactionsFromDB(acc.getAccountID());
+                // Set active profile to first profile if exists
+                if (!profiles.isEmpty()) {
+                    activeProfile   = profiles.get(0);
+                    activeProfileId = activeProfile.getID();
+                }
                 return true;
             }
         }
@@ -260,6 +271,10 @@ public class Controller {
         activeAccount   = null;
         activeProfile   = null;
         activeProfileId = 1;
+        profiles.clear();
+        categories.clear();
+        transactionGroups.clear();
+        transactions.clear();
         accOperations.setAccount(null);
     }
 
@@ -277,12 +292,13 @@ public class Controller {
         p.setDisplayName(name);
         p.setDescription(desc == null || desc.isBlank() ? null : desc);
         p.setBankRoll(0.0);
+        p.setAssocAccount(activeAccount);
         profiles.add(p);
         if (activeAccount != null) {
             activeAccount.addProfileToList(p);
         }
         accOperations.setProfile(p);
-        accOperations.addProfileDB(p);
+        accOperations.addProfileDB(p, activeAccount != null ? activeAccount.getAccountID() : 0);
         if (activeProfile == null) {
             activeProfile   = p;
             activeProfileId = p.getID();
@@ -416,6 +432,7 @@ public class Controller {
         TransactionGroup g = new TransactionGroup(
                 id, name,
                 desc == null || desc.isBlank() ? null : desc, null);
+        g.setProfileId(activeProfileId);
         transactionGroups.put(id, g);
         activeProfile.getTransactionGroups().add(g);
         transOperations.setTransactionGroup(g);
@@ -423,7 +440,9 @@ public class Controller {
     }
 
     public List<TransactionGroup> getGroupsForActiveProfile() {
-        return new ArrayList<>(transactionGroups.values());
+        return transactionGroups.values().stream()
+                .filter(g -> g.getProfileId() == activeProfileId)
+                .collect(Collectors.toList());
     }
 
     public List<Transaction> getGroupTransactions(int gid) {

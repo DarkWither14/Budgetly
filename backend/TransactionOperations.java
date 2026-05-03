@@ -1,21 +1,31 @@
 public class TransactionOperations extends DBOperations<Transaction> {
     private Transaction transaction;
     private TransactionGroup transGroup;
-	private DatabaseConnection dbConnection;
+    private DatabaseConnection dbConnection;
 
     @Override
     protected boolean create(Transaction transaction) {
         if (transaction == null || transaction.getTransactionId() <= 0)
             throw new IllegalArgumentException("Invalid transaction or transaction ID.");
         String query = "INSERT INTO Transaction VALUES (%d, %f, '%s', %d, '%tF', '%s', %d, %d, '%s')";
-        String formatted = String.format(query, transaction.getTransactionId(), transaction.getAmount(), transaction.getType().toString(), transaction.getCategoryId(), transaction.getDate(), transaction.getReceiptPath(), transaction.getTransactionGroupId(), transaction.getProfileId(), transaction.getNote());
-        
-		try {
-			dbConnection.getConnection().createStatement().executeUpdate(formatted);
-			return true;
-		} catch (Exception e) {
-			return false;
-		}
+        String formatted = String.format(query,
+                transaction.getTransactionId(),
+                transaction.getAmount(),
+                transaction.getType().toString(),
+                transaction.getCategoryId(),
+                transaction.getDate(),
+                transaction.getReceiptPath() != null ? transaction.getReceiptPath() : "",
+                transaction.getTransactionGroupId(),
+                transaction.getProfileId(),
+                transaction.getNote() != null ? transaction.getNote() : "");
+        try {
+            dbConnection.getConnection().createStatement().executeUpdate(formatted);
+            System.out.println("Transaction saved to database: " + transaction.getTransactionId());
+            return true;
+        } catch (Exception e) {
+            System.err.println("Error saving transaction to database: " + e.getMessage());
+            return false;
+        }
     }
 
     @Override
@@ -24,41 +34,58 @@ public class TransactionOperations extends DBOperations<Transaction> {
             throw new IllegalArgumentException("Invalid transaction or transaction ID.");
         String query = "DELETE FROM Transaction WHERE id = %d";
         String formatted = String.format(query, transaction.getTransactionId());
-        
-		try {
-			dbConnection.getConnection().createStatement().executeUpdate(formatted);
-			return true;
-		} catch (Exception e) {
-			return false;
-		}
+        try {
+            dbConnection.getConnection().createStatement().executeUpdate(formatted);
+            System.out.println("Transaction deleted from database: " + transaction.getTransactionId());
+            return true;
+        } catch (Exception e) {
+            System.err.println("Error deleting transaction from database: " + e.getMessage());
+            return false;
+        }
     }
 
     public boolean updateTransactionDB(Transaction trans) {
         if (trans == null || trans.getTransactionId() <= 0)
             throw new IllegalArgumentException("Invalid transaction or transaction ID.");
         String query = "UPDATE Transaction SET amount=%f, type='%s', categoryId=%d, date=%tF, receiptPath='%s', transactionGroupId=%d, profileId=%d, note='%s' WHERE id = %d";
-        String formatted = String.format(query, trans.getAmount(), trans.getType().toString(), trans.getCategoryId(), trans.getDate(), trans.getReceiptPath(), trans.getTransactionGroupId(), trans.getProfileId(), trans.getNote(), trans.getTransactionId());
-        
-		try {
-			dbConnection.getConnection().createStatement().executeUpdate(formatted);
-			return true;
-		} catch (Exception e) {
-			return false;
-		}
+        String formatted = String.format(query,
+                trans.getAmount(),
+                trans.getType().toString(),
+                trans.getCategoryId(),
+                trans.getDate(),
+                trans.getReceiptPath() != null ? trans.getReceiptPath() : "",
+                trans.getTransactionGroupId(),
+                trans.getProfileId(),
+                trans.getNote() != null ? trans.getNote() : "",
+                trans.getTransactionId());
+        try {
+            dbConnection.getConnection().createStatement().executeUpdate(formatted);
+            System.out.println("Transaction updated in database: " + trans.getTransactionId());
+            return true;
+        } catch (Exception e) {
+            System.err.println("Error updating transaction in database: " + e.getMessage());
+            return false;
+        }
     }
 
     public boolean createTransactionGroupDB(TransactionGroup transG) {
         if (transG == null || transG.getGroupId() <= 0)
             throw new IllegalArgumentException("Invalid transaction group or group ID.");
-        String query = "INSERT INTO TransactionGroup VALUES (%d, '%s', '%s', '%s')";
-        String formatted = String.format(query, transG.getGroupId(), transG.getName(), transG.getDescription(), transG.getReceiptFilePath());
-        
-		try {
-			dbConnection.getConnection().createStatement().executeUpdate(formatted);
-			return true;
-		} catch (Exception e) {
-			return false;
-		}
+        String query = "INSERT INTO TransactionGroup VALUES (%d, %d, '%s', '%s', '%s')";
+        String formatted = String.format(query,
+                transG.getGroupId(),
+                transG.getProfileId(),
+                transG.getName(),
+                transG.getDescription() != null ? transG.getDescription() : "",
+                transG.getReceiptFilePath() != null ? transG.getReceiptFilePath() : "");
+        try {
+            dbConnection.getConnection().createStatement().executeUpdate(formatted);
+            System.out.println("Transaction group saved to database: " + transG.getName());
+            return true;
+        } catch (Exception e) {
+            System.err.println("Error saving transaction group to database: " + e.getMessage());
+            return false;
+        }
     }
 
     public boolean deleteTransactionGroupDB(int transGrpID) {
@@ -66,19 +93,20 @@ public class TransactionOperations extends DBOperations<Transaction> {
             throw new IllegalArgumentException("Invalid transaction group ID.");
         String query = "DELETE FROM TransactionGroup WHERE id = %d";
         String formatted = String.format(query, transGrpID);
-        
-		try {
-			dbConnection.getConnection().createStatement().executeUpdate(formatted);
-			return true;
-		} catch (Exception e) {
-			return false;
-		}
+        try {
+            dbConnection.getConnection().createStatement().executeUpdate(formatted);
+            System.out.println("Transaction group deleted from database: " + transGrpID);
+            return true;
+        } catch (Exception e) {
+            System.err.println("Error deleting transaction group from database: " + e.getMessage());
+            return false;
+        }
     }
 
     public Transaction getTransaction() { return transaction; }
     public void setTransaction(Transaction t) { transaction = t; }
     public TransactionGroup getTransactionGroup() { return transGroup; }
     public void setTransactionGroup(TransactionGroup g) { transGroup = g; }
-	public DatabaseConnection getDatabaseConnection() { return dbConnection; }
-	public void setDatabaseConnection(DatabaseConnection db) { dbConnection = db; }
+    public DatabaseConnection getDatabaseConnection() { return dbConnection; }
+    public void setDatabaseConnection(DatabaseConnection db) { dbConnection = db; }
 }
