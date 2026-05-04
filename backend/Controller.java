@@ -154,7 +154,9 @@ public class Controller {
                 String type   = rs.getString("type");
                 String desc   = rs.getString("description");
                 int profileId = rs.getInt("profileID");
-                Category c = new Category(id, name, desc, type, profileId);
+                Category c = new Category(id, name,
+                    desc == null || desc.isEmpty() ? null : desc,
+                    type, profileId);
                 categories.put(id, c);
             }
             System.out.println("Categories loaded from database successfully.");
@@ -169,11 +171,14 @@ public class Controller {
                 .createStatement()
                 .executeQuery("SELECT * FROM TransactionGroup WHERE profileID IN (SELECT id FROM Profile WHERE accountID = " + accountID + ")");
             while (rs.next()) {
-                int id        = rs.getInt("id");
-                String name   = rs.getString("name");
-                String desc   = rs.getString("description");
-                String rcpt   = rs.getString("receiptPath");
-                TransactionGroup g = new TransactionGroup(id, name, desc, rcpt);
+                int id      = rs.getInt("id");
+                String name = rs.getString("name");
+                String desc = rs.getString("description");
+                String rcpt = rs.getString("receiptPath");
+                TransactionGroup g = new TransactionGroup(id, name,
+                    desc == null || desc.isEmpty() ? null : desc,
+                    rcpt == null || rcpt.isEmpty() ? null : rcpt);
+                g.setProfileId(rs.getInt("profileID"));
                 transactionGroups.put(id, g);
             }
             System.out.println("Transaction groups loaded from database successfully.");
@@ -188,17 +193,20 @@ public class Controller {
                 .createStatement()
                 .executeQuery("SELECT * FROM Transaction WHERE profileId IN (SELECT id FROM Profile WHERE accountID = " + accountID + ")");
             while (rs.next()) {
-                int id          = rs.getInt("id");
-                double amount   = rs.getDouble("amount");
-                String type     = rs.getString("type");
-                int catId       = rs.getInt("categoryId");
-                LocalDate date  = rs.getDate("date").toLocalDate();
-                String note     = rs.getString("note");
-                String rcpt     = rs.getString("receiptPath");
-                int groupId     = rs.getInt("transactionGroupId");
-                int profileId   = rs.getInt("profileId");
+                int id         = rs.getInt("id");
+                double amount  = rs.getDouble("amount");
+                String type    = rs.getString("type");
+                int catId      = rs.getInt("categoryId");
+                LocalDate date = rs.getDate("date").toLocalDate();
+                String note    = rs.getString("note");
+                String rcpt    = rs.getString("receiptPath");
+                int groupId    = rs.getInt("transactionGroupId");
+                int profileId  = rs.getInt("profileId");
                 Transaction t = new Transaction(
-                        id, amount, type, catId, date, note, rcpt, groupId, profileId);
+                        id, amount, type, catId, date,
+                        note == null || note.isEmpty() ? null : note,
+                        rcpt == null || rcpt.isEmpty() ? null : rcpt,
+                        groupId, profileId);
                 transactions.put(id, t);
                 TransactionGroup g = transactionGroups.get(groupId);
                 if (g != null) g.addTransacToList(t);
@@ -247,7 +255,6 @@ public class Controller {
                     && acc.checkPassword(password)) {
                 activeAccount = acc;
                 accOperations.setAccount(acc);
-                // Load this account's data from DB
                 profiles.clear();
                 categories.clear();
                 transactionGroups.clear();
@@ -256,11 +263,14 @@ public class Controller {
                 loadCategoriesFromDB(acc.getAccountID());
                 loadTransactionGroupsFromDB(acc.getAccountID());
                 loadTransactionsFromDB(acc.getAccountID());
-                // Set active profile to first profile if exists
                 if (!profiles.isEmpty()) {
                     activeProfile   = profiles.get(0);
                     activeProfileId = activeProfile.getID();
                 }
+                System.out.println("Profiles loaded: " + profiles.size());
+                System.out.println("Categories loaded: " + categories.size());
+                System.out.println("Transaction groups loaded: " + transactionGroups.size());
+                System.out.println("Transactions loaded: " + transactions.size());
                 return true;
             }
         }
